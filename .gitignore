@@ -1,0 +1,14 @@
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.obj
+*.o
+*.so
+*.dll
+*.dylib
+!dwsimpy_package/dwsimpy/libs/**
+!native_libs_arm64/**
+coolprop/
+dwsim/

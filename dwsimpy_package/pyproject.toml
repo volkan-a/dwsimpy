@@ -1,0 +1,17 @@
+[project]
+name = "dwsimpy"
+version = "1.0.0"
+description = "DWSIM Chemical Process Simulation for Python (macOS ARM64)"
+requires-python = ">=3.10"
+dependencies = [
+    "pythonnet>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["dwsimpy"]
+
+[tool.setuptools.package-data]
+dwsimpy = ["libs/*", ".runtimeconfig.json"]
