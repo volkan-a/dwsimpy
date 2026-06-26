@@ -51,12 +51,14 @@ jobs:
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git C:\cp
           (echo set(CSHARP_FOUND TRUE)& echo set(CSHARP_COMPILER "")) > C:\cp\dev\cmake\Modules\FindCsharp.cmake
           copy C:\cp\dev\cmake\Modules\FindCsharp.cmake C:\cp\cmake\FindCsharp.cmake
-          mkdir C:\cp\build && cd C:\cp\build
+          if not exist C:\cp\build mkdir C:\cp\build
+          cd /d C:\cp\build
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd /d C:\cp\build
           set CPM_SOURCE_CACHE=C:\cp\.cpm_cache
           cmake -G "Ninja" .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build . --parallel
-          mkdir C:\artifacts 2>nul
+          if not exist C:\artifacts mkdir C:\artifacts
           copy CoolPropCsharp.dll C:\artifacts\CoolProp.dll 2>nul
           dir *.dll
       - name: Build PetAz
