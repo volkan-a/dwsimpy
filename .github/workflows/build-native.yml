@@ -56,7 +56,7 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           cd /d C:\cp\build
           set CPM_SOURCE_CACHE=C:\cp\.cpm_cache
-          cmake -G "Ninja" .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake -G "Ninja" .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build . --parallel
           if not exist C:\artifacts mkdir C:\artifacts
           copy CoolPropCsharp.dll C:\artifacts\CoolProp.dll 2>nul
