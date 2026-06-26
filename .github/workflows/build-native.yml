@@ -8,33 +8,33 @@ jobs:
   # Linux x86_64
   # ═══════════════════════════════════════════════════════════════
   linux-x86_64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake gfortran swig git python3
+          sudo apt-get install -y build-essential cmake swig git python3
 
       - name: Build CoolProp
         run: |
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/coolprop
-          # FindCsharp.cmake stub (C# compiler gerekmez)
-          mkdir -p /tmp/coolprop/dev/cmake/Modules
-          cat > /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake << 'EOF'
-          set(CSHARP_FOUND TRUE)
-          set(CSHARP_COMPILER "")
-          EOF
+          
+          # FindCsharp.cmake stub
+          printf 'set(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake
           cp /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake /tmp/coolprop/cmake/FindCsharp.cmake
+          
           mkdir -p /tmp/coolprop/build && cd /tmp/coolprop/build
           cmake .. \
             -DCOOLPROP_SHARED_LIBRARY=ON \
             -DCOOLPROP_CSHARP_MODULE=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_FLAGS="-fPIC" \
-            -DCMAKE_CXX_FLAGS="-fPIC"
-          make -j$(nproc)
+            -DCMAKE_CXX_FLAGS="-fPIC" \
+            -DSWIG_EXECUTABLE=$(which swig)
+          make -j$(nproc) VERBOSE=1
+          
           mkdir -p artifacts
           cp libCoolProp.so artifacts/
 
@@ -55,46 +55,50 @@ jobs:
           path: artifacts/*
 
   # ═══════════════════════════════════════════════════════════════
-  # Windows x86_64 (MSVC)
+  # Windows x86_64
   # ═══════════════════════════════════════════════════════════════
   windows-x86_64:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
       - name: Install SWIG
         run: choco install swig -y --no-progress
 
       - name: Build CoolProp
-        shell: cmd
+        shell: pwsh
         run: |
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git C:\coolprop
-          REM FindCsharp stub
-          echo set(CSHARP_FOUND TRUE)> C:\coolprop\dev\cmake\Modules\FindCsharp.cmake
-          echo set(CSHARP_COMPILER "")>> C:\coolprop\dev\cmake\Modules\FindCsharp.cmake
-          copy C:\coolprop\dev\cmake\Modules\FindCsharp.cmake C:\coolprop\cmake\FindCsharp.cmake
-          mkdir C:\coolprop\build
-          cd C:\coolprop\build
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          cmake -G "NMake Makefiles" .. ^
-            -DCOOLPROP_SHARED_LIBRARY=ON ^
-            -DCOOLPROP_CSHARP_MODULE=ON ^
-            -DCMAKE_BUILD_TYPE=Release
-          nmake
-          mkdir C:\artifacts
-          copy CoolProp.dll C:\artifacts\
-          copy libCoolProp.dll C:\artifacts\CoolProp.dll 2>nul
+          
+          # FindCsharp stub
+          @"
+          set(CSHARP_FOUND TRUE)
+          set(CSHARP_COMPILER "")
+          "@ | Set-Content C:\coolprop\dev\cmake\Modules\FindCsharp.cmake
+          Copy-Item C:\coolprop\dev\cmake\Modules\FindCsharp.cmake C:\coolprop\cmake\FindCsharp.cmake
+          
+          New-Item -ItemType Directory -Force -Path C:\coolprop\build
+          Set-Location C:\coolprop\build
+          
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          
+          cmake -G "Visual Studio 17 2022" -A x64 .. `
+            -DCOOLPROP_SHARED_LIBRARY=ON `
+            -DCOOLPROP_CSHARP_MODULE=ON `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DSWIG_DIR="C:\ProgramData\chocolatey\lib\swig\tools"
+          
+          cmake --build . --config Release --parallel
+          
+          New-Item -ItemType Directory -Force -Path C:\artifacts
+          Get-ChildItem -Recurse -Filter "*.dll" | Where-Object { $_.Name -match "CoolProp" } | Copy-Item -Destination C:\artifacts\CoolProp.dll -Force
 
       - name: Build PetAz
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           cl /LD /O2 native_libs_arm64\PetAz.c /Fe:C:\artifacts\PetAz.dll
+          copy PetAz.lib C:\artifacts\ 2>nul
 
       - name: Get SkiaSharp
         shell: pwsh
@@ -125,12 +129,14 @@ jobs:
       - name: Build CoolProp
         run: |
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/coolprop
-          mkdir -p /tmp/coolprop/dev/cmake/Modules
+          
           printf 'set(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake
           cp /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake /tmp/coolprop/cmake/FindCsharp.cmake
+          
           mkdir -p /tmp/coolprop/build && cd /tmp/coolprop/build
           cmake .. -DCOOLPROP_SHARED_LIBRARY=ON -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release
           make -j$(sysctl -n hw.ncpu)
+          
           mkdir -p artifacts
           cp libCoolProp.dylib artifacts/
 
@@ -143,8 +149,8 @@ jobs:
           dotnet new classlib -o /tmp/skia --force
           dotnet add /tmp/skia package SkiaSharp.NativeAssets.macOS --version 2.88.9
           dotnet restore /tmp/skia
-          cp ~/.nuget/packages/skiasharp.nativeassets.macos/2.88.9/runtimes/osx/native/libSkiaSharp.dylib /tmp/ski_universal.dylib
-          lipo /tmp/ski_universal.dylib -thin arm64 -output artifacts/libSkiaSharp.dylib
+          cp ~/.nuget/packages/skiasharp.nativeassets.macos/2.88.9/runtimes/osx/native/libSkiaSharp.dylib /tmp/ski.dylib
+          lipo /tmp/ski.dylib -thin arm64 -output artifacts/libSkiaSharp.dylib
 
       - uses: actions/upload-artifact@v4
         with:
