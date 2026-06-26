@@ -47,15 +47,24 @@ jobs:
         shell: pwsh
         run: |
           cmake --version
+          # Pre-download Eigen to avoid FetchContent subbuild issues on Windows
+          git clone --depth 1 https://gitlab.com/libeigen/eigen.git C:\eigen
+          
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git C:\cp
           @"
           set(CSHARP_FOUND TRUE)
           set(CSHARP_COMPILER "")
           "@ | Set-Content C:\cp\dev\cmake\Modules\FindCsharp.cmake
           Copy-Item C:\cp\dev\cmake\Modules\FindCsharp.cmake C:\cp\cmake\FindCsharp.cmake
+          
+          # Patch dependencies.cmake to use local Eigen
+          $deps = Get-Content C:\cp\cmake\dependencies.cmake -Raw
+          $deps = $deps -replace 'CPMAddPackage\(\s*\n\s*NAME Eigen.*?\)', "set(EIGEN_INCLUDE_DIR C:/eigen)"
+          Set-Content C:\cp\cmake\dependencies.cmake $deps
+          
           New-Item -ItemType Directory -Force -Path C:\cp\build
           Set-Location C:\cp\build
-          cmake -G "Visual Studio 17 2022" -A x64 .. "-DCOOLPROP_CSHARP_MODULE=ON"
+          cmake -G "Visual Studio 17 2022" -A x64 .. "-DCOOLPROP_CSHARP_MODULE=ON" "-DEIGEN_INCLUDE_DIR=C:/eigen"
           cmake --build . --config Release --parallel
           New-Item -ItemType Directory -Force -Path C:\artifacts
           Get-ChildItem -Recurse -Filter "CoolPropCsharp.dll" | Copy-Item -Destination C:\artifacts\CoolProp.dll -Force
