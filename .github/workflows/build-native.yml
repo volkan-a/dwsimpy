@@ -1,14 +1,11 @@
 name: Build Native Libraries
 
 on:
-  workflow_dispatch:  # Manuel tetikleme
-  push:
-    tags:
-      - 'v*'           # Version tag ile tetikleme
+  workflow_dispatch:
 
 jobs:
   # ═══════════════════════════════════════════════════════════════
-  # Linux x86_64: CoolProp + PetAz + SkiaSharp
+  # Linux x86_64
   # ═══════════════════════════════════════════════════════════════
   linux-x86_64:
     runs-on: ubuntu-latest
@@ -22,8 +19,15 @@ jobs:
 
       - name: Build CoolProp
         run: |
-          git clone --depth 1 https://github.com/CoolProp/CoolProp.git coolprop_src
-          mkdir -p coolprop_src/build && cd coolprop_src/build
+          git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/coolprop
+          # FindCsharp.cmake stub (C# compiler gerekmez)
+          mkdir -p /tmp/coolprop/dev/cmake/Modules
+          cat > /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake << 'EOF'
+          set(CSHARP_FOUND TRUE)
+          set(CSHARP_COMPILER "")
+          EOF
+          cp /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake /tmp/coolprop/cmake/FindCsharp.cmake
+          mkdir -p /tmp/coolprop/build && cd /tmp/coolprop/build
           cmake .. \
             -DCOOLPROP_SHARED_LIBRARY=ON \
             -DCOOLPROP_CSHARP_MODULE=ON \
@@ -31,74 +35,82 @@ jobs:
             -DCMAKE_C_FLAGS="-fPIC" \
             -DCMAKE_CXX_FLAGS="-fPIC"
           make -j$(nproc)
-          cp libCoolProp.so $GITHUB_WORKSPACE/artifacts/
+          mkdir -p artifacts
+          cp libCoolProp.so artifacts/
 
       - name: Build PetAz
         run: |
-          gcc -shared -fPIC -O2 -o libPetAz.so native_libs_arm64/PetAz.c
+          gcc -shared -fPIC -O2 -o artifacts/libPetAz.so native_libs_arm64/PetAz.c
 
-      - name: Get SkiaSharp native
+      - name: Get SkiaSharp
         run: |
-          dotnet new classlib -o /tmp/skia && cd /tmp/skia
-          dotnet add package SkiaSharp.NativeAssets.Linux --version 2.88.9
-          dotnet restore
-          cp ~/.nuget/packages/skiasharp.nativeassets.linux/2.88.9/runtimes/linux-x64/native/libSkiaSharp.so $GITHUB_WORKSPACE/artifacts/
+          dotnet new classlib -o /tmp/skia --force
+          dotnet add /tmp/skia package SkiaSharp.NativeAssets.Linux --version 2.88.9
+          dotnet restore /tmp/skia
+          cp ~/.nuget/packages/skiasharp.nativeassets.linux/2.88.9/runtimes/linux-x64/native/libSkiaSharp.so artifacts/
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: native-linux-x86_64
           path: artifacts/*
 
   # ═══════════════════════════════════════════════════════════════
-  # Windows x86_64: CoolProp + PetAz + SkiaSharp
+  # Windows x86_64 (MSVC)
   # ═══════════════════════════════════════════════════════════════
   windows-x86_64:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup MinGW
-        uses: msys2/setup-msys2@v2
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          msystem: MINGW64
-          install: mingw-w64-x86_64-cmake mingw-w64-x86_64-gcc mingw-w64-x86_64-swig git
+          python-version: '3.x'
+
+      - name: Install SWIG
+        run: choco install swig -y --no-progress
 
       - name: Build CoolProp
-        shell: msys2 {0}
+        shell: cmd
         run: |
-          git clone --depth 1 https://github.com/CoolProp/CoolProp.git coolprop_src
-          mkdir -p coolprop_src/build && cd coolprop_src/build
-          cmake -G "MinGW Makefiles" .. \
-            -DCOOLPROP_SHARED_LIBRARY=ON \
-            -DCOOLPROP_CSHARP_MODULE=ON \
+          git clone --depth 1 https://github.com/CoolProp/CoolProp.git C:\coolprop
+          REM FindCsharp stub
+          echo set(CSHARP_FOUND TRUE)> C:\coolprop\dev\cmake\Modules\FindCsharp.cmake
+          echo set(CSHARP_COMPILER "")>> C:\coolprop\dev\cmake\Modules\FindCsharp.cmake
+          copy C:\coolprop\dev\cmake\Modules\FindCsharp.cmake C:\coolprop\cmake\FindCsharp.cmake
+          mkdir C:\coolprop\build
+          cd C:\coolprop\build
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cmake -G "NMake Makefiles" .. ^
+            -DCOOLPROP_SHARED_LIBRARY=ON ^
+            -DCOOLPROP_CSHARP_MODULE=ON ^
             -DCMAKE_BUILD_TYPE=Release
-          mingw32-make -j$(nproc)
-          cp libCoolProp.dll /c/artifacts/CoolProp.dll
-          mkdir -p /c/artifacts
+          nmake
+          mkdir C:\artifacts
+          copy CoolProp.dll C:\artifacts\
+          copy libCoolProp.dll C:\artifacts\CoolProp.dll 2>nul
 
       - name: Build PetAz
-        shell: msys2 {0}
-        run: |
-          gcc -shared -O2 -o PetAz.dll native_libs_arm64/PetAz.c
-          cp PetAz.dll /c/artifacts/
-
-      - name: Get SkiaSharp native
-        run: |
-          dotnet new classlib -o /tmp/skia && cd /tmp/skia
-          dotnet add package SkiaSharp.NativeAssets.Win32 --version 2.88.9
-          dotnet restore
-          copy "%USERPROFILE%\.nuget\packages\skiasharp.nativeassets.win32\2.88.9\runtimes\win-x64\native\libSkiaSharp.dll" "C:\artifacts\"
         shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cl /LD /O2 native_libs_arm64\PetAz.c /Fe:C:\artifacts\PetAz.dll
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Get SkiaSharp
+        shell: pwsh
+        run: |
+          dotnet new classlib -o C:\skia --force
+          dotnet add C:\skia package SkiaSharp.NativeAssets.Win32 --version 2.88.9
+          dotnet restore C:\skia
+          Copy-Item "$env:USERPROFILE\.nuget\packages\skiasharp.nativeassets.win32\2.88.9\runtimes\win-x64\native\libSkiaSharp.dll" "C:\artifacts\"
+
+      - uses: actions/upload-artifact@v4
         with:
           name: native-windows-x86_64
           path: C:\artifacts\*
 
   # ═══════════════════════════════════════════════════════════════
-  # macOS ARM64: Mevcut build'i teyit et (opsiyonel)
+  # macOS ARM64
   # ═══════════════════════════════════════════════════════════════
   macos-arm64:
     runs-on: macos-14
@@ -107,43 +119,34 @@ jobs:
 
       - name: Install dependencies
         run: |
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
           brew install cmake swig
 
       - name: Build CoolProp
         run: |
-          git clone --depth 1 https://github.com/CoolProp/CoolProp.git coolprop_src
-          # FindCsharp stub
-          cat > coolprop_src/cmake/FindCsharp.cmake << 'EOF'
-          set(CSHARP_FOUND TRUE)
-          set(CSHARP_COMPILER "")
-          EOF
-          cp coolprop_src/cmake/FindCsharp.cmake coolprop_src/dev/cmake/Modules/FindCsharp.cmake
-          mkdir -p coolprop_src/build && cd coolprop_src/build
-          cmake .. \
-            -DCOOLPROP_SHARED_LIBRARY=ON \
-            -DCOOLPROP_CSHARP_MODULE=ON \
-            -DCMAKE_BUILD_TYPE=Release
+          git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/coolprop
+          mkdir -p /tmp/coolprop/dev/cmake/Modules
+          printf 'set(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake
+          cp /tmp/coolprop/dev/cmake/Modules/FindCsharp.cmake /tmp/coolprop/cmake/FindCsharp.cmake
+          mkdir -p /tmp/coolprop/build && cd /tmp/coolprop/build
+          cmake .. -DCOOLPROP_SHARED_LIBRARY=ON -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release
           make -j$(sysctl -n hw.ncpu)
-          cp libCoolProp.dylib $GITHUB_WORKSPACE/artifacts/
+          mkdir -p artifacts
+          cp libCoolProp.dylib artifacts/
 
       - name: Build PetAz
         run: |
-          gcc -shared -dynamiclib -O2 -o libPetAz.dylib native_libs_arm64/PetAz.c
+          gcc -shared -dynamiclib -O2 -o artifacts/libPetAz.dylib native_libs_arm64/PetAz.c
 
-      - name: Get SkiaSharp native
+      - name: Get SkiaSharp
         run: |
-          dotnet new classlib -o /tmp/skia && cd /tmp/skia
-          dotnet add package SkiaSharp.NativeAssets.macOS --version 2.88.9
-          dotnet restore
-          # Extract arm64 slice
-          cp ~/.nuget/packages/skiasharp.nativeassets.macos/2.88.9/runtimes/osx/native/libSkiaSharp.dylib /tmp/skiasharp_universal.dylib
-          lipo /tmp/skiasharp_universal.dylib -thin arm64 -output libSkiaSharp.dylib
+          dotnet new classlib -o /tmp/skia --force
+          dotnet add /tmp/skia package SkiaSharp.NativeAssets.macOS --version 2.88.9
+          dotnet restore /tmp/skia
+          cp ~/.nuget/packages/skiasharp.nativeassets.macos/2.88.9/runtimes/osx/native/libSkiaSharp.dylib /tmp/ski_universal.dylib
+          lipo /tmp/ski_universal.dylib -thin arm64 -output artifacts/libSkiaSharp.dylib
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: native-macos-arm64
-          path: |
-            libCoolProp.dylib
-            libPetAz.dylib
-            libSkiaSharp.dylib
+          path: artifacts/*
