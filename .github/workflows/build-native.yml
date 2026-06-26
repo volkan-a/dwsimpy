@@ -44,30 +44,21 @@ jobs:
           Expand-Archive C:\cmake.zip -DestinationPath C:\
           echo "C:\cmake-3.28.3-windows-x86_64\bin" >> $env:GITHUB_PATH
       - name: Build CoolProp
-        shell: pwsh
+        shell: cmd
         run: |
           cmake --version
-          # Pre-download Eigen to avoid FetchContent subbuild issues on Windows
           git clone --depth 1 https://gitlab.com/libeigen/eigen.git C:\eigen
-          
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git C:\cp
-          @"
-          set(CSHARP_FOUND TRUE)
-          set(CSHARP_COMPILER "")
-          "@ | Set-Content C:\cp\dev\cmake\Modules\FindCsharp.cmake
-          Copy-Item C:\cp\dev\cmake\Modules\FindCsharp.cmake C:\cp\cmake\FindCsharp.cmake
-          
-          # Patch dependencies.cmake to use local Eigen
-          $deps = Get-Content C:\cp\cmake\dependencies.cmake -Raw
-          $deps = $deps -replace 'CPMAddPackage\(\s*\n\s*NAME Eigen.*?\)', "set(EIGEN_INCLUDE_DIR C:/eigen)"
-          Set-Content C:\cp\cmake\dependencies.cmake $deps
-          
-          New-Item -ItemType Directory -Force -Path C:\cp\build
-          Set-Location C:\cp\build
-          cmake -G "Visual Studio 17 2022" -A x64 .. "-DCOOLPROP_CSHARP_MODULE=ON" "-DEIGEN_INCLUDE_DIR=C:/eigen"
-          cmake --build . --config Release --parallel
-          New-Item -ItemType Directory -Force -Path C:\artifacts
-          Get-ChildItem -Recurse -Filter "CoolPropCsharp.dll" | Copy-Item -Destination C:\artifacts\CoolProp.dll -Force
+          (echo set(CSHARP_FOUND TRUE)& echo set(CSHARP_COMPILER "")) > C:\cp\dev\cmake\Modules\FindCsharp.cmake
+          copy C:\cp\dev\cmake\Modules\FindCsharp.cmake C:\cp\cmake\FindCsharp.cmake
+          mkdir C:\cp\build && cd C:\cp\build
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          set CPM_SOURCE_CACHE=C:\cp\.cpm_cache
+          cmake -G "Ninja" .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build . --parallel
+          mkdir C:\artifacts 2>nul
+          copy CoolPropCsharp.dll C:\artifacts\CoolProp.dll 2>nul
+          dir *.dll
       - name: Build PetAz
         shell: cmd
         run: |
