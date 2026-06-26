@@ -4,15 +4,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ═══════════════════════════════════════════════════════════════
-  # Linux x86_64
-  # ═══════════════════════════════════════════════════════════════
   linux-x86_64:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake swig git python3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git python3
+          # SWIG 4.2 from PPA (Ubuntu 22.04 has 4.0 which fails on CoolProp headers)
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:deadsnakes/ppa
+          # Build SWIG 4.2 from source
+          sudo apt-get install -y autoconf automake libpcre3-dev bison flex
+          git clone --depth 1 --branch v4.2.0 https://github.com/swig/swig.git /tmp/swig
+          cd /tmp/swig && ./autogen.sh && ./configure --prefix=/usr && make -j$(nproc) && sudo make install
+          swig -version
       - name: Build CoolProp
         run: |
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/cp
@@ -21,9 +28,10 @@ jobs:
           mkdir /tmp/cp/build && cd /tmp/cp/build
           cmake .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_CXX_FLAGS="-fPIC"
           make -j$(nproc)
-          mkdir -p artifacts && cp CoolPropCsharp.so artifacts/libCoolProp.so 2>/dev/null || cp libCoolProp*.so artifacts/libCoolProp.so
+          mkdir -p $GITHUB_WORKSPACE/artifacts
+          cp CoolPropCsharp.so $GITHUB_WORKSPACE/artifacts/libCoolProp.so 2>/dev/null || cp libCoolProp*.so $GITHUB_WORKSPACE/artifacts/libCoolProp.so
       - name: Build PetAz
-        run: gcc -shared -fPIC -O2 -o artifacts/libPetAz.so native_libs_arm64/PetAz.c
+        run: gcc -shared -fPIC -O2 -o artifacts/libPetAz.so native_libs_arm64/PetAz.c -lm
       - name: Get SkiaSharp
         run: |
           dotnet new classlib -o /tmp/s --force
@@ -33,9 +41,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: native-linux-x86_64, path: artifacts/* }
 
-  # ═══════════════════════════════════════════════════════════════
-  # Windows x86_64
-  # ═══════════════════════════════════════════════════════════════
   windows-x86_64:
     runs-on: windows-latest
     steps:
@@ -43,17 +48,20 @@ jobs:
       - name: Install SWIG
         run: choco install swig -y --no-progress
       - name: Build CoolProp
-        shell: cmd
+        shell: pwsh
         run: |
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git C:\cp
-          (echo set(CSHARP_FOUND TRUE)& echo set(CSHARP_COMPILER "")) > C:\cp\dev\cmake\Modules\FindCsharp.cmake
-          copy C:\cp\dev\cmake\Modules\FindCsharp.cmake C:\cp\cmake\FindCsharp.cmake
-          mkdir C:\cp\build && cd C:\cp\build
-          cmake -G "Visual Studio 17 2022" -A x64 .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release
+          @"
+          set(CSHARP_FOUND TRUE)
+          set(CSHARP_COMPILER "")
+          "@ | Set-Content C:\cp\dev\cmake\Modules\FindCsharp.cmake
+          Copy-Item C:\cp\dev\cmake\Modules\FindCsharp.cmake C:\cp\cmake\FindCsharp.cmake
+          New-Item -ItemType Directory -Force -Path C:\cp\build
+          Set-Location C:\cp\build
+          cmake -G "Visual Studio 17 2022" -A x64 .. -DCOOLPROP_CSHARP_MODULE=ON
           cmake --build . --config Release --parallel
-          mkdir C:\artifacts 2>nul
-          copy Release\*.dll C:\artifacts\ 2>nul
-          dir Release\*.dll
+          New-Item -ItemType Directory -Force -Path C:\artifacts
+          Get-ChildItem -Recurse -Filter "CoolPropCsharp.dll" | Copy-Item -Destination C:\artifacts\CoolProp.dll -Force
       - name: Build PetAz
         shell: cmd
         run: |
@@ -69,9 +77,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: native-windows-x86_64, path: C:\artifacts\* }
 
-  # ═══════════════════════════════════════════════════════════════
-  # macOS ARM64
-  # ═══════════════════════════════════════════════════════════════
   macos-arm64:
     runs-on: macos-14
     steps:
@@ -86,9 +91,10 @@ jobs:
           mkdir /tmp/cp/build && cd /tmp/cp/build
           cmake .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release
           make -j$(sysctl -n hw.ncpu)
-          mkdir -p artifacts && cp libCoolProp*.dylib artifacts/libCoolProp.dylib 2>/dev/null || cp CoolPropCsharp.dylib artifacts/libCoolProp.dylib
+          mkdir -p $GITHUB_WORKSPACE/artifacts
+          cp libCoolProp*.dylib $GITHUB_WORKSPACE/artifacts/libCoolProp.dylib 2>/dev/null || cp CoolPropCsharp.dylib $GITHUB_WORKSPACE/artifacts/libCoolProp.dylib
       - name: Build PetAz
-        run: gcc -shared -dynamiclib -O2 -o artifacts/libPetAz.dylib native_libs_arm64/PetAz.c
+        run: gcc -shared -dynamiclib -O2 -o artifacts/libPetAz.dylib native_libs_arm64/PetAz.c -lm
       - name: Get SkiaSharp
         run: |
           dotnet new classlib -o /tmp/s --force
