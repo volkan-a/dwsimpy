@@ -37,6 +37,31 @@ Make it strict when a net10 payload exists:
 python3 dwsimpy_package/scripts/audit_managed_runtime.py --fail-on-legacy
 ```
 
+If a local DWSIM source checkout is available under `./dwsim`, audit source
+projects with:
+
+```bash
+python3 dwsimpy_package/scripts/audit_dwsim_source.py \
+  --focus 'DWSIM\.(Interfaces|GlobalSettings|Math|SharedClasses|Thermodynamics|UnitOperations|FlowsheetBase|FlowsheetSolver|Automation)$'
+```
+
+This repo intentionally ignores `./dwsim`, so this audit is a local planning
+tool unless an explicit source checkout is added to CI.
+
+Current local source-audit findings:
+
+- Every project in the runtime port queue still targets .NET Framework.
+- `DWSIM.MathOps*` projects are the cleanest leaves: mostly target-framework
+  migration with few or no UI blockers.
+- `DWSIM.Interfaces` is the first real contract split: it exposes WinForms,
+  Drawing, Eto/IronPython-related enum surface, and chart/editor concepts.
+- `DWSIM.GlobalSettings` has a small renderer/platform UI settings leak.
+- `DWSIM.SharedClasses`, `DWSIM.Thermodynamics`, `DWSIM.UnitOperations`, and
+  `DWSIM.FlowsheetBase` carry heavy editor/form/drawing references and should
+  not be ported by blindly retargeting the old projects.
+- `DWSIM.FlowsheetSolver` is comparatively small but still references the
+  legacy script interpreter surface.
+
 The first pure .NET 10 slice now lives in `src/DwsimPy.Runtime`:
 
 - `DwsimDocument` opens `.dwxml` and `.dwxmz` files.
@@ -108,14 +133,17 @@ It checks registry coverage for the DWSIM palette, alias resolution,
 
 1. **Inventory and guard**
    - Keep `audit_managed_runtime.py` in the repo.
+   - Keep `audit_dwsim_source.py` in the repo for local source dependency
+     inventory while `./dwsim` remains ignored.
    - Run it in CI as report-only while the current payload is legacy.
    - Flip it to `--fail-on-legacy` once the net10 payload is staged.
 
 2. **Create SDK-style net10 projects**
-   - Start from dependency leaves:
+   - Start from dependency leaves with low UI coupling:
+     - `DWSIM.MathOps*`
+   - Then split and port the headless contracts:
      - `DWSIM.Interfaces`
      - `DWSIM.GlobalSettings`
-     - `DWSIM.MathOps*`
      - `DWSIM.SharedClassesCSharp`
    - Avoid carrying old `.vbproj/.csproj` desktop references forward.
    - Split UI-facing interfaces out of the headless contract. Even

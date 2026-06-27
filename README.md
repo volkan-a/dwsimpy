@@ -41,6 +41,12 @@ Audit the current payload with:
 python3 dwsimpy_package/scripts/audit_managed_runtime.py
 ```
 
+Audit a local ignored DWSIM source checkout with:
+
+```bash
+python3 dwsimpy_package/scripts/audit_dwsim_source.py --source-dir ./dwsim
+```
+
 ## Supported Wheels
 
 GitHub Releases provide one wheel per platform:
@@ -145,6 +151,7 @@ dwsimpy_package/
   scripts/
     stage_platform_runtime.py
     audit_managed_runtime.py
+    audit_dwsim_source.py
     validate_native_artifacts.py
     validate_wheel_contents.py
     smoke_test.py
