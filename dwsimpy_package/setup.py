@@ -1,8 +1,14 @@
 import os
 import sysconfig
 
+from setuptools import Distribution
 from setuptools import setup
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+
+
+class BinaryDistribution(Distribution):
+    def has_ext_modules(self):
+        return True
 
 
 class bdist_wheel(_bdist_wheel):
@@ -22,4 +28,4 @@ class bdist_wheel(_bdist_wheel):
         return "py3", "none", plat
 
 
-setup(cmdclass={"bdist_wheel": bdist_wheel})
+setup(cmdclass={"bdist_wheel": bdist_wheel}, distclass=BinaryDistribution)

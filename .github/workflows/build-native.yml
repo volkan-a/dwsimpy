@@ -145,18 +145,24 @@ jobs:
       - name: Install Python build tools
         run: python3 -m pip install --upgrade pip cibuildwheel
       - name: Build CoolProp
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/cp
           printf 'set(Csharp_FOUND TRUE)\nset(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/cp/dev/cmake/Modules/FindCsharp.cmake
           cp /tmp/cp/dev/cmake/Modules/FindCsharp.cmake /tmp/cp/cmake/FindCsharp.cmake
           mkdir /tmp/cp/build && cd /tmp/cp/build
-          cmake .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release
+          cmake .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES=arm64
           make -j$(sysctl -n hw.ncpu)
           mkdir -p $GITHUB_WORKSPACE/artifacts
           cp libCoolProp*.dylib $GITHUB_WORKSPACE/artifacts/libCoolProp.dylib 2>/dev/null || cp CoolPropCsharp.dylib $GITHUB_WORKSPACE/artifacts/libCoolProp.dylib
       - name: Build PetAz
-        run: gcc -shared -dynamiclib -O2 -o artifacts/libPetAz.dylib native_libs_arm64/PetAz.c -lm
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: gcc -shared -dynamiclib -mmacosx-version-min=11.0 -O2 -o artifacts/libPetAz.dylib native_libs_arm64/PetAz.c -lm
       - name: Get SkiaSharp
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
           dotnet new classlib -o /tmp/s --force
           dotnet add /tmp/s package SkiaSharp.NativeAssets.macOS --version 2.88.9
