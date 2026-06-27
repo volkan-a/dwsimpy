@@ -1,19 +1,34 @@
-name: Build Native Libraries
+name: Build Native Libraries and Wheels
 
 on:
   workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   linux-x86_64:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "10.0.x" }
       - name: Install deps
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake swig git python3
+      - name: Install Python build tools
+        run: python3 -m pip install --upgrade pip cibuildwheel
       - name: Build CoolProp
         run: |
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/cp
-          printf 'set(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/cp/dev/cmake/Modules/FindCsharp.cmake
+          printf 'set(Csharp_FOUND TRUE)\nset(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/cp/dev/cmake/Modules/FindCsharp.cmake
           cp /tmp/cp/dev/cmake/Modules/FindCsharp.cmake /tmp/cp/cmake/FindCsharp.cmake
           mkdir /tmp/cp/build && cd /tmp/cp/build
           cmake .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_CXX_FLAGS="-fPIC"
@@ -28,15 +43,32 @@ jobs:
           dotnet add /tmp/s package SkiaSharp.NativeAssets.Linux --version 2.88.9
           dotnet restore /tmp/s
           cp ~/.nuget/packages/skiasharp.nativeassets.linux/2.88.9/runtimes/linux-x64/native/libSkiaSharp.so artifacts/
+      - name: Validate native artifacts
+        run: python3 dwsimpy_package/scripts/validate_native_artifacts.py --platform linux_x86_64 --native-dir artifacts
       - uses: actions/upload-artifact@v4
-        with: { name: native-linux-x86_64, path: artifacts/* }
+        with: { name: native-linux-x86_64, path: artifacts/*, retention-days: 14 }
+      - name: Build platform wheel
+        run: |
+          python3 dwsimpy_package/scripts/stage_platform_runtime.py --platform linux_x86_64 --native-dir artifacts --package-dir dwsimpy_package
+          cd dwsimpy_package
+          CIBW_BUILD=cp310-manylinux_x86_64 python3 -m cibuildwheel --output-dir wheelhouse
+          python3 scripts/validate_wheel_contents.py --platform linux_x86_64 wheelhouse/*.whl
+      - uses: actions/upload-artifact@v4
+        with: { name: wheels-linux-x86_64, path: dwsimpy_package/wheelhouse/*.whl, retention-days: 14 }
 
   windows-x86_64:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install SWIG
-        run: choco install swig -y --no-progress
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "10.0.x" }
+      - name: Install SWIG and Ninja
+        run: choco install swig ninja -y --no-progress
+      - name: Install Python build tools
+        shell: pwsh
+        run: python -m pip install --upgrade pip cibuildwheel
       - name: Install CMake 3.28
         shell: pwsh
         run: |
@@ -54,21 +86,27 @@ jobs:
           where cl
           git clone --depth 1 https://gitlab.com/libeigen/eigen.git C:\eigen
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git C:\cp
-          (echo set(CSHARP_FOUND TRUE)& echo set(CSHARP_COMPILER "")) > C:\cp\dev\cmake\Modules\FindCsharp.cmake
-          copy C:\cp\dev\cmake\Modules\FindCsharp.cmake C:\cp\cmake\FindCsharp.cmake
+          (echo set^(Csharp_FOUND TRUE^)& echo set^(CSHARP_FOUND TRUE^)& echo set^(CSHARP_COMPILER ""^)) > C:\cp\dev\cmake\Modules\FindCsharp.cmake
+          copy /Y C:\cp\dev\cmake\Modules\FindCsharp.cmake C:\cp\cmake\FindCsharp.cmake
           if not exist C:\cp\build mkdir C:\cp\build
           cd /d C:\cp\build
           set CPM_SOURCE_CACHE=C:\cp\.cpm_cache
           cmake -G "Ninja" .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build . --parallel
           if not exist C:\artifacts mkdir C:\artifacts
-          copy CoolPropCsharp.dll C:\artifacts\CoolProp.dll 2>nul
-          dir *.dll
+          for /r %%F in (CoolPropCsharp.dll CoolProp.dll) do if exist "%%F" if not exist C:\artifacts\CoolProp.dll copy /Y "%%F" C:\artifacts\CoolProp.dll
+          if not exist C:\artifacts\CoolProp.dll (
+            echo ERROR: CoolProp DLL was not produced.
+            dir /s /b *.dll
+            exit /b 1
+          )
+          dir C:\artifacts
       - name: Build PetAz
         shell: cmd
         run: |
+          if not exist C:\artifacts mkdir C:\artifacts
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          cl /LD /O2 native_libs_arm64\PetAz.c /Fe:C:\artifacts\PetAz.dll
+          cl /LD /O2 native_libs_arm64\PetAz.c /Fe:C:\artifacts\PetAz.dll /link /NOLOGO
       - name: Get SkiaSharp
         shell: pwsh
         run: |
@@ -76,19 +114,40 @@ jobs:
           dotnet add C:\s package SkiaSharp.NativeAssets.Win32 --version 2.88.9
           dotnet restore C:\s
           Copy-Item "$env:USERPROFILE\.nuget\packages\skiasharp.nativeassets.win32\2.88.9\runtimes\win-x64\native\libSkiaSharp.dll" "C:\artifacts\"
+      - name: Validate native artifacts
+        shell: pwsh
+        run: python dwsimpy_package\scripts\validate_native_artifacts.py --platform windows_x86_64 --native-dir C:\artifacts
       - uses: actions/upload-artifact@v4
-        with: { name: native-windows-x86_64, path: C:\artifacts\* }
+        with: { name: native-windows-x86_64, path: C:\artifacts\*, retention-days: 14 }
+      - name: Build platform wheel
+        shell: pwsh
+        run: |
+          python dwsimpy_package\scripts\stage_platform_runtime.py --platform windows_x86_64 --native-dir C:\artifacts --package-dir dwsimpy_package
+          Push-Location dwsimpy_package
+          $env:CIBW_BUILD = "cp310-win_amd64"
+          python -m cibuildwheel --output-dir wheelhouse
+          $wheel = (Get-ChildItem wheelhouse\*.whl | Select-Object -First 1).FullName
+          python scripts\validate_wheel_contents.py --platform windows_x86_64 $wheel
+          Pop-Location
+      - uses: actions/upload-artifact@v4
+        with: { name: wheels-windows-x86_64, path: dwsimpy_package\wheelhouse\*.whl, retention-days: 14 }
 
   macos-arm64:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "10.0.x" }
       - name: Install deps
         run: HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install cmake swig
+      - name: Install Python build tools
+        run: python3 -m pip install --upgrade pip cibuildwheel
       - name: Build CoolProp
         run: |
           git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/cp
-          printf 'set(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/cp/dev/cmake/Modules/FindCsharp.cmake
+          printf 'set(Csharp_FOUND TRUE)\nset(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/cp/dev/cmake/Modules/FindCsharp.cmake
           cp /tmp/cp/dev/cmake/Modules/FindCsharp.cmake /tmp/cp/cmake/FindCsharp.cmake
           mkdir /tmp/cp/build && cd /tmp/cp/build
           cmake .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release
@@ -103,5 +162,42 @@ jobs:
           dotnet add /tmp/s package SkiaSharp.NativeAssets.macOS --version 2.88.9
           dotnet restore /tmp/s
           lipo ~/.nuget/packages/skiasharp.nativeassets.macos/2.88.9/runtimes/osx/native/libSkiaSharp.dylib -thin arm64 -output artifacts/libSkiaSharp.dylib
+      - name: Validate native artifacts
+        run: python3 dwsimpy_package/scripts/validate_native_artifacts.py --platform macos_arm64 --native-dir artifacts
       - uses: actions/upload-artifact@v4
-        with: { name: native-macos-arm64, path: artifacts/* }
+        with: { name: native-macos-arm64, path: artifacts/*, retention-days: 14 }
+      - name: Build platform wheel
+        env:
+          CIBW_BUILD: cp310-macosx_arm64
+          CIBW_ARCHS_MACOS: arm64
+          DWSIMPY_WHEEL_PLAT_NAME: macosx_11_0_arm64
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: |
+          python3 dwsimpy_package/scripts/stage_platform_runtime.py --platform macos_arm64 --native-dir artifacts --package-dir dwsimpy_package
+          cd dwsimpy_package
+          python3 -m cibuildwheel --output-dir wheelhouse
+          python3 scripts/validate_wheel_contents.py --platform macos_arm64 wheelhouse/*.whl
+      - uses: actions/upload-artifact@v4
+        with: { name: wheels-macos-arm64, path: dwsimpy_package/wheelhouse/*.whl, retention-days: 14 }
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - linux-x86_64
+      - windows-x86_64
+      - macos-arm64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: wheelhouse
+          merge-multiple: true
+      - name: Attach wheels to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -lh wheelhouse
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "dwsimpy wheel release $GITHUB_REF_NAME"
+          gh release upload "$GITHUB_REF_NAME" wheelhouse/*.whl --clobber
