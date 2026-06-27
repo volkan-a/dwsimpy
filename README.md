@@ -38,6 +38,7 @@ Track the port plan in `docs/NET10_PORT_PLAN.md`.
 The repo now also contains the first ported DWSIM leaf assemblies built as
 SDK-style `.NETCoreApp,Version=v10.0` projects:
 
+- `DWSIM.Interfaces`
 - `DWSIM.MathOps.SimpsonIntegrator`
 - `DWSIM.MathOps`
 - `DWSIM.MathOps.Mapack`
@@ -49,6 +50,10 @@ The main VB `DWSIM.MathOps` port does not carry legacy optional solver wrappers
 that pull old framework binaries (`IPOPTSolver.vb`/`Cureos.Numerics` and
 `LibOptimizationWrappers`/`LibOptimization`). The portable numerical core is
 covered by the MathOps test runner.
+
+`DWSIM.Interfaces` is ported as a headless contract assembly. Desktop-specific
+contract points that previously exposed WinForms or System.Drawing types now use
+`Object` so downstream solver code does not need desktop assemblies.
 
 Audit the current payload with:
 
@@ -173,6 +178,7 @@ dwsimpy_package/
 docs/
   NET10_PORT_PLAN.md
 src/
+  DWSIM.Interfaces/
   DWSIM.MathOps/
   DWSIM.MathOps.DotNumerics/
   DWSIM.MathOps.Mapack/

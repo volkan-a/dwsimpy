@@ -53,8 +53,9 @@ Current local source-audit findings:
 - Every project in the runtime port queue still targets .NET Framework.
 - `DWSIM.MathOps*` projects are the cleanest leaves: mostly target-framework
   migration with few or no UI blockers.
-- `DWSIM.Interfaces` is the first real contract split: it exposes WinForms,
-  Drawing, Eto/IronPython-related enum surface, and chart/editor concepts.
+- `DWSIM.Interfaces` was the first real contract split: the net10 port keeps
+  the solver/automation contracts while replacing desktop WinForms and Drawing
+  signatures with `Object`.
 - `DWSIM.GlobalSettings` has a small renderer/platform UI settings leak.
 - `DWSIM.SharedClasses`, `DWSIM.Thermodynamics`, `DWSIM.UnitOperations`, and
   `DWSIM.FlowsheetBase` carry heavy editor/form/drawing references and should
@@ -89,9 +90,10 @@ The first pure .NET 10 slice now lives in `src/DwsimPy.Runtime`:
 - Solver execution intentionally throws `NotSupportedException` until the
   headless solver path is ported.
 
-The first upstream DWSIM leaf assemblies now also live in `src/` as SDK-style
+The first upstream DWSIM contract/leaf assemblies now also live in `src/` as SDK-style
 `.NETCoreApp,Version=v10.0` projects:
 
+- `src/DWSIM.Interfaces`
 - `src/DWSIM.MathOps.SimpsonIntegrator`
 - `src/DWSIM.MathOps`
 - `src/DWSIM.MathOps.Mapack`
@@ -99,9 +101,15 @@ The first upstream DWSIM leaf assemblies now also live in `src/` as SDK-style
 - `src/DWSIM.MathOps.SwarmOps`
 - `src/DWSIM.MathOps.DotNumerics`
 
-All six keep their DWSIM assembly names and compile without Mono, .NET Framework,
-WinForms, Eto, IronPython, or desktop drawing dependencies. They are guarded by
-`src/DwsimPy.MathOps.Tests`.
+All seven keep their DWSIM assembly names and compile without Mono, .NET Framework,
+WinForms, Eto, IronPython, or desktop drawing dependencies. The MathOps
+assemblies are guarded by `src/DwsimPy.MathOps.Tests`; the interface contract is
+guarded by `src/DwsimPy.Runtime.Tests`.
+
+`src/DWSIM.Interfaces` is a headless contract split. Methods that used to expose
+desktop values such as `System.Windows.Forms.Form`, `System.Windows.Forms.UserControl`,
+`System.Drawing.Bitmap`, or `System.Drawing.Image` now expose `Object` in this
+runtime boundary. The runtime test runner checks those signatures by reflection.
 
 The main VB `DWSIM.MathOps` port intentionally does not carry legacy optional
 solver adapters into the net10 source project:
@@ -137,7 +145,8 @@ dotnet run --project src/DwsimPy.Runtime.Tests -c Release
 ```
 
 It checks registry coverage for the DWSIM palette, alias resolution,
-`.dwxml/.dwxmz` graph edit roundtrips, and `External` graphic object resolution.
+`.dwxml/.dwxmz` graph edit roundtrips, `External` graphic object resolution, and
+the headless `DWSIM.Interfaces` contract signatures.
 
 The MathOps test runner checks the first ported numerical assemblies:
 
@@ -175,6 +184,7 @@ SwarmOps benchmark optimization smoke path.
 
 2. **Create SDK-style net10 projects**
    - Started from dependency leaves with low UI coupling:
+     - `DWSIM.Interfaces`
      - `DWSIM.MathOps`
      - `DWSIM.MathOps.SimpsonIntegrator`
      - `DWSIM.MathOps.Mapack`
@@ -183,8 +193,7 @@ SwarmOps benchmark optimization smoke path.
      - `DWSIM.MathOps.DotNumerics`
    - Revisit the optional old solver adapters only after choosing native/managed
      replacements for IPOPT and LibOptimization.
-   - Then split and port the headless contracts:
-     - `DWSIM.Interfaces`
+   - Continue with the remaining headless contracts:
      - `DWSIM.GlobalSettings`
      - `DWSIM.SharedClassesCSharp`
    - Avoid carrying old `.vbproj/.csproj` desktop references forward.

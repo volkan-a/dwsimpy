@@ -6,6 +6,7 @@ var tests = new (string Name, Action Body)[]
 {
     ("registry contains DWSIM palette", RegistryContainsDwsimPalette),
     ("registry resolves aliases", RegistryResolvesAliases),
+    ("interfaces are headless contracts", InterfacesAreHeadlessContracts),
     ("dwxml graph edit roundtrip", DwxmlGraphEditRoundtrip),
     ("dwxmz save and load roundtrip", DwxmzSaveAndLoadRoundtrip),
     ("external graphic resolves to simulation object type", ExternalGraphicResolvesToSimulationObjectType),
@@ -108,6 +109,21 @@ static void RegistryResolvesAliases()
     Assert(registry.Resolve("Splitter").ObjectType == "NodeOut", "Splitter should resolve to NodeOut");
     Assert(registry.Resolve("Expander (Turbine)").ObjectType == "Expander", "Display alias should resolve to Expander");
     Assert(registry.Resolve("PEM Fuel Cell (Amphlett)").ObjectType == "PEMFuelCell", "Display alias should resolve to PEMFuelCell");
+}
+
+static void InterfacesAreHeadlessContracts()
+{
+    Assert(typeof(DWSIM.Interfaces.IFlowsheet).IsInterface, "IFlowsheet should be available");
+    Assert(typeof(DWSIM.Interfaces.ISimulationObject).IsInterface, "ISimulationObject should be available");
+    Assert(typeof(DWSIM.Interfaces.IPropertyPackage).IsInterface, "IPropertyPackage should be available");
+    Assert(Enum.GetNames(typeof(DWSIM.Interfaces.Enums.GraphicObjects.ObjectType))
+        .Contains("MaterialStream"), "Graphic object enum should include MaterialStream");
+
+    var getEditingForm = typeof(DWSIM.Interfaces.ISimulationObject).GetMethod("GetEditingForm");
+    Assert(getEditingForm?.ReturnType == typeof(object), "GetEditingForm should not expose WinForms");
+
+    var getIconAsBitmap = typeof(DWSIM.Interfaces.IGraphicObject).GetMethod("GetIconAsBitmap");
+    Assert(getIconAsBitmap?.ReturnType == typeof(object), "GetIconAsBitmap should not expose System.Drawing");
 }
 
 static void DwxmlGraphEditRoundtrip()

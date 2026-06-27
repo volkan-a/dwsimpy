@@ -28,6 +28,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: "10.0.x" }
+      - name: Build pure .NET 10 interface contracts
+        run: dotnet build src/DWSIM.Interfaces/DWSIM.Interfaces.vbproj -c Release
       - name: Build pure .NET 10 runtime slice
         run: dotnet build src/DwsimPy.Runtime.Cli/DwsimPy.Runtime.Cli.csproj -c Release
       - name: Test pure .NET 10 runtime slice

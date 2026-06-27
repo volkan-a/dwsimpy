@@ -7,6 +7,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../DWSIM.Interfaces/DWSIM.Interfaces.vbproj" />
     <ProjectReference Include="../DwsimPy.Runtime/DwsimPy.Runtime.csproj" />
   </ItemGroup>
 </Project>
