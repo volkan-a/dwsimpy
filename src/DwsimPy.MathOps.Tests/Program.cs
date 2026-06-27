@@ -1,10 +1,13 @@
 using Mapack;
+using SwarmOps.Optimizers;
 
 var tests = new (string Name, Action Body)[]
 {
     ("simpson integrates polynomial", SimpsonIntegratesPolynomial),
     ("mapack solves linear system", MapackSolvesLinearSystem),
     ("mapack decompositions expose expected values", MapackDecompositionsExposeExpectedValues),
+    ("randomops produces deterministic values", RandomOpsProducesDeterministicValues),
+    ("swarmops optimizes benchmark", SwarmOpsOptimizesBenchmark),
 };
 
 var failed = 0;
@@ -79,6 +82,37 @@ static void MapackDecompositionsExposeExpectedValues()
     var svd = new SingularValueDecomposition(matrix);
     Assert(svd.Rank == 2, "SVD rank");
     AssertNear(eigenvalues[1], svd.Norm2, 1e-10, "SVD 2-norm");
+}
+
+static void RandomOpsProducesDeterministicValues()
+{
+    var first = new RandomOps.RanQD(123u);
+    var second = new RandomOps.RanQD(123u);
+
+    for (var i = 0; i < 8; i++)
+    {
+        Assert(first.Rand() == second.Rand(), $"Deterministic random value {i}");
+    }
+
+    var uniform = first.Uniform();
+    Assert(uniform > 0.0 && uniform < 1.0, "Uniform random range");
+}
+
+static void SwarmOpsOptimizesBenchmark()
+{
+    SwarmOps.Globals.Random = new RandomOps.RanQD(42u);
+
+    var problem = new SwarmOps.Problems.Sphere(dimensionality: 2, maxIterations: 30)
+    {
+        Tolerance = -1.0,
+    };
+    var optimizer = new GD(problem);
+    var result = optimizer.Optimize();
+
+    Assert(result.Feasible, "Optimizer result feasibility");
+    Assert(result.Parameters.Length == 2, "Optimizer parameter length");
+    Assert(double.IsFinite(result.Fitness), "Optimizer finite fitness");
+    Assert(result.Fitness >= problem.MinFitness, "Optimizer fitness lower bound");
 }
 
 static void Assert(bool condition, string message)

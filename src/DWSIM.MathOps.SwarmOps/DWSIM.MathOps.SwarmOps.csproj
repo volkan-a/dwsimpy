@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>DWSIM.MathOps.SwarmOps</AssemblyName>
+    <RootNamespace>SwarmOps</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../DWSIM.MathOps.RandomOps/DWSIM.MathOps.RandomOps.csproj" />
+  </ItemGroup>
+</Project>

@@ -36,6 +36,8 @@ jobs:
         run: |
           dotnet build src/DWSIM.MathOps.SimpsonIntegrator/DWSIM.MathOps.SimpsonIntegrator.csproj -c Release
           dotnet build src/DWSIM.MathOps.Mapack/DWSIM.MathOps.Mapack.csproj -c Release
+          dotnet build src/DWSIM.MathOps.RandomOps/DWSIM.MathOps.RandomOps.csproj -c Release
+          dotnet build src/DWSIM.MathOps.SwarmOps/DWSIM.MathOps.SwarmOps.csproj -c Release
       - name: Test pure .NET 10 MathOps leaves
         run: dotnet run --project src/DwsimPy.MathOps.Tests/DwsimPy.MathOps.Tests.csproj -c Release
 

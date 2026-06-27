@@ -40,6 +40,8 @@ SDK-style `.NETCoreApp,Version=v10.0` projects:
 
 - `DWSIM.MathOps.SimpsonIntegrator`
 - `DWSIM.MathOps.Mapack`
+- `DWSIM.MathOps.RandomOps`
+- `DWSIM.MathOps.SwarmOps`
 
 Audit the current payload with:
 
@@ -165,7 +167,9 @@ docs/
   NET10_PORT_PLAN.md
 src/
   DWSIM.MathOps.Mapack/
+  DWSIM.MathOps.RandomOps/
   DWSIM.MathOps.SimpsonIntegrator/
+  DWSIM.MathOps.SwarmOps/
   DwsimPy.Runtime/
   DwsimPy.Runtime.Cli/
   DwsimPy.MathOps.Tests/
