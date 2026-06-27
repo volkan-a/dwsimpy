@@ -211,6 +211,7 @@ jobs:
       - name: Attach wheels to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           ls -lh wheelhouse
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
