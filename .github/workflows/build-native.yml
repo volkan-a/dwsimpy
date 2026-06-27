@@ -44,6 +44,7 @@ jobs:
             mkdir -p /io/artifacts
             cp CoolPropCsharp.so /io/artifacts/libCoolProp.so 2>/dev/null || cp libCoolProp*.so /io/artifacts/libCoolProp.so
             gcc -shared -fPIC -O2 -o /io/artifacts/libPetAz.so /io/native_libs_arm64/PetAz.c -lm
+            chmod -R a+rwX /io/artifacts
           '
       - name: Get SkiaSharp
         run: |
