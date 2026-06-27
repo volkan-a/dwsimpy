@@ -24,6 +24,23 @@ You do need:
 Current wheels target .NET/CoreCLR with the package runtime config in
 `dwsimpy/.runtimeconfig.json`.
 
+## .NET 10 Runtime Port Status
+
+The current release hosts CoreCLR with a .NET 10 runtime config, but the curated
+DWSIM managed payload is still based on legacy DWSIM assemblies. The next
+runtime milestone is to replace that payload with first-party DWSIM assemblies
+compiled for `.NETCoreApp,Version=v10.0` and remove desktop/legacy baggage such
+as WinForms, Eto, IronPython, Microsoft.Scripting, and .NET Framework facade
+assemblies.
+
+Track the port plan in `docs/NET10_PORT_PLAN.md`.
+
+Audit the current payload with:
+
+```bash
+python3 dwsimpy_package/scripts/audit_managed_runtime.py
+```
+
 ## Supported Wheels
 
 GitHub Releases provide one wheel per platform:
@@ -127,9 +144,16 @@ dwsimpy_package/
     libs/
   scripts/
     stage_platform_runtime.py
+    audit_managed_runtime.py
     validate_native_artifacts.py
     validate_wheel_contents.py
     smoke_test.py
+docs/
+  NET10_PORT_PLAN.md
+src/
+  DwsimPy.Runtime/
+  DwsimPy.Runtime.Cli/
+  DwsimPy.Runtime.Tests/
 examples/
   solve_existing_flowsheet.py
 native_libs_arm64/
@@ -147,3 +171,30 @@ https://github.com/DanWBR/dwsim
 
 This project is an experimental Python packaging layer for DWSIM automation and
 is not an official DWSIM distribution.
+
+## Experimental .NET 10 Runtime Slice
+
+`src/DwsimPy.Runtime` is the start of a pure .NET 10 runtime boundary. It can
+open, inspect, edit, and save `.dwxml/.dwxmz` documents without pythonnet,
+Mono, WinForms, Eto, or IronPython. It also exposes a `UnitOperationRegistry`
+for DWSIM palette/toolbox metadata and future custom unit operations. Solver
+execution is not ported there yet.
+
+Try the CLI:
+
+```bash
+dotnet run --project src/DwsimPy.Runtime.Cli -- inspect path/to/file.dwxmz
+dotnet run --project src/DwsimPy.Runtime.Cli -- unitops
+dotnet run --project src/DwsimPy.Runtime.Cli -- create /tmp/new.dwxml
+dotnet run --project src/DwsimPy.Runtime.Cli -- add-node /tmp/new.dwxml MaterialStream Feed 40 80 /tmp/with-feed.dwxml
+```
+
+`unitops` returns JSON descriptors for the web UI palette: object type,
+display name, category, simulation type, graphic type, connector counts, and
+aliases. For example, `Mixer` resolves to DWSIM's canonical `NodeIn` type.
+
+Run the .NET 10 runtime tests:
+
+```bash
+dotnet run --project src/DwsimPy.Runtime.Tests -c Release
+```

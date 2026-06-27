@@ -13,6 +13,26 @@ permissions:
   contents: write
 
 jobs:
+  managed-runtime-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - name: Audit managed runtime payload
+        run: python3 dwsimpy_package/scripts/audit_managed_runtime.py
+
+  net10-runtime:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "10.0.x" }
+      - name: Build pure .NET 10 runtime slice
+        run: dotnet build src/DwsimPy.Runtime.Cli/DwsimPy.Runtime.Cli.csproj -c Release
+      - name: Test pure .NET 10 runtime slice
+        run: dotnet run --project src/DwsimPy.Runtime.Tests/DwsimPy.Runtime.Tests.csproj -c Release
+
   linux-x86_64:
     runs-on: ubuntu-24.04
     steps:
