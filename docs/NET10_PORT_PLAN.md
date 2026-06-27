@@ -96,8 +96,9 @@ The first upstream DWSIM leaf assemblies now also live in `src/` as SDK-style
 - `src/DWSIM.MathOps.Mapack`
 - `src/DWSIM.MathOps.RandomOps`
 - `src/DWSIM.MathOps.SwarmOps`
+- `src/DWSIM.MathOps.DotNumerics`
 
-All four keep their DWSIM assembly names and compile without Mono, .NET Framework,
+All five keep their DWSIM assembly names and compile without Mono, .NET Framework,
 WinForms, Eto, IronPython, or drawing dependencies. They are guarded by
 `src/DwsimPy.MathOps.Tests`.
 
@@ -134,8 +135,8 @@ dotnet run --project src/DwsimPy.MathOps.Tests -c Release
 ```
 
 It currently covers Simpson integration, Mapack linear solves, Cholesky, LU,
-eigenvalues, SVD, deterministic random generation, and a SwarmOps benchmark
-optimization smoke path.
+eigenvalues, SVD, DotNumerics/LAPACK linear solves, deterministic random
+generation, and a SwarmOps benchmark optimization smoke path.
 
 ## Definition of Done
 
@@ -166,8 +167,8 @@ optimization smoke path.
      - `DWSIM.MathOps.Mapack`
      - `DWSIM.MathOps.RandomOps`
      - `DWSIM.MathOps.SwarmOps`
-   - Continue with the remaining MathOps leaves:
      - `DWSIM.MathOps.DotNumerics`
+   - Continue with the remaining MathOps leaves:
      - VB `DWSIM.MathOps`
    - Then split and port the headless contracts:
      - `DWSIM.Interfaces`

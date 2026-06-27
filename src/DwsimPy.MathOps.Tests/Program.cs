@@ -6,6 +6,7 @@ var tests = new (string Name, Action Body)[]
     ("simpson integrates polynomial", SimpsonIntegratesPolynomial),
     ("mapack solves linear system", MapackSolvesLinearSystem),
     ("mapack decompositions expose expected values", MapackDecompositionsExposeExpectedValues),
+    ("dotnumerics solves linear system", DotNumericsSolvesLinearSystem),
     ("randomops produces deterministic values", RandomOpsProducesDeterministicValues),
     ("swarmops optimizes benchmark", SwarmOpsOptimizesBenchmark),
 };
@@ -82,6 +83,22 @@ static void MapackDecompositionsExposeExpectedValues()
     var svd = new SingularValueDecomposition(matrix);
     Assert(svd.Rank == 2, "SVD rank");
     AssertNear(eigenvalues[1], svd.Norm2, 1e-10, "SVD 2-norm");
+}
+
+static void DotNumericsSolvesLinearSystem()
+{
+    var solver = new DotNumerics.LinearAlgebra.LinearEquations();
+    var coefficients = new DotNumerics.LinearAlgebra.Matrix(new[,]
+    {
+        { 3.0, 2.0 },
+        { 1.0, 2.0 },
+    });
+    var rhs = new DotNumerics.LinearAlgebra.Vector(new[] { 5.0, 5.0 });
+
+    var solution = solver.Solve(coefficients, rhs);
+
+    AssertNear(0.0, solution[0], 1e-10, "DotNumerics linear solve x");
+    AssertNear(2.5, solution[1], 1e-10, "DotNumerics linear solve y");
 }
 
 static void RandomOpsProducesDeterministicValues()

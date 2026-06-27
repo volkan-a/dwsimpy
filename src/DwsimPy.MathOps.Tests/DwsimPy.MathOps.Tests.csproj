@@ -7,6 +7,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../DWSIM.MathOps.DotNumerics/DWSIM.MathOps.DotNumerics.csproj" />
     <ProjectReference Include="../DWSIM.MathOps.Mapack/DWSIM.MathOps.Mapack.csproj" />
     <ProjectReference Include="../DWSIM.MathOps.RandomOps/DWSIM.MathOps.RandomOps.csproj" />
     <ProjectReference Include="../DWSIM.MathOps.SimpsonIntegrator/DWSIM.MathOps.SimpsonIntegrator.csproj" />

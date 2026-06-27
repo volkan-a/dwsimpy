@@ -42,6 +42,7 @@ SDK-style `.NETCoreApp,Version=v10.0` projects:
 - `DWSIM.MathOps.Mapack`
 - `DWSIM.MathOps.RandomOps`
 - `DWSIM.MathOps.SwarmOps`
+- `DWSIM.MathOps.DotNumerics`
 
 Audit the current payload with:
 
@@ -166,6 +167,7 @@ dwsimpy_package/
 docs/
   NET10_PORT_PLAN.md
 src/
+  DWSIM.MathOps.DotNumerics/
   DWSIM.MathOps.Mapack/
   DWSIM.MathOps.RandomOps/
   DWSIM.MathOps.SimpsonIntegrator/
