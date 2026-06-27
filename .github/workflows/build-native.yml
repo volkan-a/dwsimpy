@@ -25,18 +25,22 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake swig git python3
       - name: Install Python build tools
         run: python3 -m pip install --upgrade pip cibuildwheel
-      - name: Build CoolProp
+      - name: Build CoolProp and PetAz
         run: |
-          git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/cp
-          printf 'set(Csharp_FOUND TRUE)\nset(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER "")\n' > /tmp/cp/dev/cmake/Modules/FindCsharp.cmake
-          cp /tmp/cp/dev/cmake/Modules/FindCsharp.cmake /tmp/cp/cmake/FindCsharp.cmake
-          mkdir /tmp/cp/build && cd /tmp/cp/build
-          cmake .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_CXX_FLAGS="-fPIC"
-          make -j$(nproc)
-          mkdir -p $GITHUB_WORKSPACE/artifacts
-          cp CoolPropCsharp.so $GITHUB_WORKSPACE/artifacts/libCoolProp.so 2>/dev/null || cp libCoolProp*.so $GITHUB_WORKSPACE/artifacts/libCoolProp.so
-      - name: Build PetAz
-        run: gcc -shared -fPIC -O2 -o artifacts/libPetAz.so native_libs_arm64/PetAz.c -lm
+          docker run --rm -v "$GITHUB_WORKSPACE:/io" quay.io/pypa/manylinux2014_x86_64:2025.04.19-1 /bin/bash -lc '
+            set -eux
+            /opt/python/cp310-cp310/bin/python -m pip install --upgrade cmake swig
+            export PATH="/opt/python/cp310-cp310/bin:$PATH"
+            git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/cp
+            printf "set(Csharp_FOUND TRUE)\nset(CSHARP_FOUND TRUE)\nset(CSHARP_COMPILER \"\")\n" > /tmp/cp/dev/cmake/Modules/FindCsharp.cmake
+            cp /tmp/cp/dev/cmake/Modules/FindCsharp.cmake /tmp/cp/cmake/FindCsharp.cmake
+            mkdir /tmp/cp/build && cd /tmp/cp/build
+            cmake .. -DCOOLPROP_CSHARP_MODULE=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_CXX_FLAGS="-fPIC"
+            make -j"$(nproc)"
+            mkdir -p /io/artifacts
+            cp CoolPropCsharp.so /io/artifacts/libCoolProp.so 2>/dev/null || cp libCoolProp*.so /io/artifacts/libCoolProp.so
+            gcc -shared -fPIC -O2 -o /io/artifacts/libPetAz.so /io/native_libs_arm64/PetAz.c -lm
+          '
       - name: Get SkiaSharp
         run: |
           dotnet new classlib -o /tmp/s --force
