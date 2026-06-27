@@ -28,7 +28,8 @@ Usage:
 
 import os
 import sys
-import json
+import platform
+import shutil
 from pathlib import Path
 
 # ═══════════════════════════════════════════════════════════════════
@@ -36,42 +37,107 @@ from pathlib import Path
 # ═══════════════════════════════════════════════════════════════════
 _PACKAGE_DIR = Path(__file__).parent.resolve()
 _LIBS_DIR = _PACKAGE_DIR / "libs"
+_RUNTIME_CONFIG = _PACKAGE_DIR / ".runtimeconfig.json"
+
+_REQUIRED_NATIVE = {
+    "macos_arm64": ("libCoolProp.dylib", "libPetAz.dylib", "libSkiaSharp.dylib"),
+    "linux_x86_64": ("libCoolProp.so", "libPetAz.so", "libSkiaSharp.so"),
+    "windows_x86_64": ("CoolProp.dll", "PetAz.dll", "libSkiaSharp.dll"),
+}
 
 # ═══════════════════════════════════════════════════════════════════
 # Runtime initialization (runs once on import)
 # ═══════════════════════════════════════════════════════════════════
 _initialized = False
 _automation = None
+_dll_directory_handles = []
+
+
+def _platform_key():
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+
+    if system == "darwin" and machine in {"arm64", "aarch64"}:
+        return "macos_arm64"
+    if system == "linux" and machine in {"x86_64", "amd64"}:
+        return "linux_x86_64"
+    if system == "windows" and machine in {"amd64", "x86_64"}:
+        return "windows_x86_64"
+
+    raise RuntimeError(
+        "Unsupported platform for dwsimpy native runtime: "
+        f"{platform.system()} {platform.machine()}. Supported targets are "
+        "macOS arm64, Linux x86_64, and Windows x86_64."
+    )
+
+
+def _runtime_dirs(platform_name):
+    candidates = [_LIBS_DIR]
+    for dirname in ("native", platform_name):
+        path = _LIBS_DIR / dirname
+        if path.is_dir():
+            candidates.append(path)
+    return candidates
+
+
+def _prepend_env_path(name, paths):
+    current = os.environ.get(name)
+    value = os.pathsep.join(str(path) for path in paths)
+    os.environ[name] = value if not current else value + os.pathsep + current
+
+
+def _validate_runtime_payload(platform_name, dirs):
+    if not _LIBS_DIR.is_dir():
+        raise RuntimeError(f"DWSIM runtime directory not found: {_LIBS_DIR}")
+    if not _RUNTIME_CONFIG.is_file():
+        raise RuntimeError(f"CoreCLR runtime config not found: {_RUNTIME_CONFIG}")
+
+    missing = []
+    for native_name in _REQUIRED_NATIVE[platform_name]:
+        if not any((path / native_name).is_file() for path in dirs):
+            missing.append(native_name)
+    if missing:
+        raise RuntimeError(
+            "Missing dwsimpy native runtime files for "
+            f"{platform_name}: {', '.join(missing)}. Rebuild or restage the "
+            "platform wheel runtime payload."
+        )
+
+
+def _configure_native_search_paths(dirs):
+    global _dll_directory_handles
+
+    path_dirs = [path for path in dirs if path.is_dir()]
+    if platform.system().lower() == "windows":
+        _prepend_env_path("PATH", path_dirs)
+        if hasattr(os, "add_dll_directory"):
+            for path in path_dirs:
+                _dll_directory_handles.append(os.add_dll_directory(str(path)))
+    elif platform.system().lower() == "darwin":
+        _prepend_env_path("DYLD_LIBRARY_PATH", path_dirs)
+    else:
+        _prepend_env_path("LD_LIBRARY_PATH", path_dirs)
+
+    for path in reversed(path_dirs):
+        path_str = str(path)
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
+
 
 def _init_runtime():
     global _initialized
     if _initialized:
         return
 
-    libs = str(_LIBS_DIR)
-
-    # Environment
-    os.environ["DYLD_LIBRARY_PATH"] = libs
-
-    # CoreCLR runtime config
-    rtcfg = {
-        "runtimeOptions": {
-            "tfm": "net10.0",
-            "framework": {
-                "name": "Microsoft.NETCore.App",
-                "version": "10.0.0",
-            },
-        }
-    }
-    cfg_path = str(_PACKAGE_DIR / ".runtimeconfig.json")
-    with open(cfg_path, "w") as f:
-        json.dump(rtcfg, f)
+    platform_name = _platform_key()
+    runtime_dirs = _runtime_dirs(platform_name)
+    _validate_runtime_payload(platform_name, runtime_dirs)
+    _configure_native_search_paths(runtime_dirs)
 
     os.environ["PYTHONNET_RUNTIME"] = "coreclr"
-    os.environ["PYTHONNET_CORECLR_RUNTIME_CONFIG"] = cfg_path
+    os.environ["PYTHONNET_CORECLR_RUNTIME_CONFIG"] = str(_RUNTIME_CONFIG)
     os.environ["PYTHONNET_CORECLR_DOTNET_ROOT"] = _find_dotnet_root()
 
-    sys.path.insert(0, libs)
     # NOTE: do NOT os.chdir(libs) — breaks user file paths
 
     from pythonnet import load
@@ -79,8 +145,8 @@ def _init_runtime():
     import clr
 
     # Stub assemblies (must be loaded first)
-    clr.AddReference(os.path.join(libs, "System.Windows.Forms.dll"))
-    clr.AddReference(os.path.join(libs, "System.Drawing.Common.dll"))
+    clr.AddReference(str(_LIBS_DIR / "System.Windows.Forms.dll"))
+    clr.AddReference(str(_LIBS_DIR / "System.Drawing.Common.dll"))
 
     # DWSIM assemblies
     _DWSIM_ASMS = [
@@ -96,23 +162,32 @@ def _init_runtime():
         "DWSIM.DynamicsManager", "DWSIM.Automation",
     ]
     for asm in _DWSIM_ASMS:
-        clr.AddReference(asm)
+        asm_path = _LIBS_DIR / f"{asm}.dll"
+        clr.AddReference(str(asm_path) if asm_path.is_file() else asm)
 
     _initialized = True
 
 
 def _find_dotnet_root():
     candidates = [
+        os.environ.get("DOTNET_ROOT"),
+        os.environ.get("DOTNET_ROOT_X64"),
         "/opt/homebrew/opt/dotnet/libexec",
         "/usr/local/share/dotnet",
-        os.environ.get("DOTNET_ROOT"),
+        "/usr/share/dotnet",
+        os.environ.get("ProgramFiles") and os.path.join(os.environ["ProgramFiles"], "dotnet"),
     ]
+    dotnet_on_path = shutil.which("dotnet")
+    if dotnet_on_path:
+        candidates.append(str(Path(dotnet_on_path).parent))
+
+    exe_name = "dotnet.exe" if platform.system().lower() == "windows" else "dotnet"
     for c in candidates:
-        if c and os.path.isfile(os.path.join(c, "dotnet")):
+        if c and os.path.isfile(os.path.join(c, exe_name)):
             return c
     raise RuntimeError(
-        ".NET SDK not found. Install with: brew install dotnet\n"
-        "Or set DOTNET_ROOT environment variable."
+        ".NET runtime not found. Install .NET 10 or set DOTNET_ROOT to the "
+        "directory containing the dotnet executable."
     )
 
 

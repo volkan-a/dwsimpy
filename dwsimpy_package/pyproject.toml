@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "dwsimpy"
 version = "1.0.0"
-description = "DWSIM Chemical Process Simulation for Python (macOS ARM64)"
+description = "DWSIM Chemical Process Simulation for Python"
 requires-python = ">=3.10"
 dependencies = [
     "pythonnet>=3.0.0",
@@ -12,6 +16,12 @@ dev = ["pytest"]
 
 [tool.setuptools]
 packages = ["dwsimpy"]
+include-package-data = true
 
 [tool.setuptools.package-data]
-dwsimpy = ["libs/*", ".runtimeconfig.json"]
+dwsimpy = [".runtimeconfig.json", "libs/*", "libs/**/*"]
+
+[tool.cibuildwheel]
+build = "cp310-*"
+skip = "*-musllinux_*"
+test-command = "python -c \"import dwsimpy; print('dwsimpy import ok')\""
