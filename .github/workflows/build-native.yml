@@ -29,6 +29,10 @@ jobs:
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/io" quay.io/pypa/manylinux2014_x86_64:2025.04.19-1 /bin/bash -lc '
             set -eux
+            if ! command -v 7z >/dev/null 2>&1; then
+              printf "#!/bin/sh\nexit 0\n" > /usr/local/bin/7z
+              chmod +x /usr/local/bin/7z
+            fi
             /opt/python/cp310-cp310/bin/python -m pip install --upgrade cmake swig
             export PATH="/opt/python/cp310-cp310/bin:$PATH"
             git clone --depth 1 https://github.com/CoolProp/CoolProp.git /tmp/cp
