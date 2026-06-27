@@ -93,14 +93,25 @@ The first upstream DWSIM leaf assemblies now also live in `src/` as SDK-style
 `.NETCoreApp,Version=v10.0` projects:
 
 - `src/DWSIM.MathOps.SimpsonIntegrator`
+- `src/DWSIM.MathOps`
 - `src/DWSIM.MathOps.Mapack`
 - `src/DWSIM.MathOps.RandomOps`
 - `src/DWSIM.MathOps.SwarmOps`
 - `src/DWSIM.MathOps.DotNumerics`
 
-All five keep their DWSIM assembly names and compile without Mono, .NET Framework,
-WinForms, Eto, IronPython, or drawing dependencies. They are guarded by
+All six keep their DWSIM assembly names and compile without Mono, .NET Framework,
+WinForms, Eto, IronPython, or desktop drawing dependencies. They are guarded by
 `src/DwsimPy.MathOps.Tests`.
+
+The main VB `DWSIM.MathOps` port intentionally does not carry legacy optional
+solver adapters into the net10 source project:
+
+- `IPOPTSolver.vb`, because it depends on the legacy `Cureos.Numerics` binary.
+- `LibOptimizationWrappers/**`, because it depends on `LibOptimization`'s old
+  `net35` assembly surface.
+
+The remaining `LP_Solve.vb` file compiles as a P/Invoke declaration surface, but
+the native `lpsolve55` runtime is not yet staged for dwsimpy wheels.
 
 The CLI harness in `src/DwsimPy.Runtime.Cli` is for local validation:
 
@@ -128,15 +139,16 @@ dotnet run --project src/DwsimPy.Runtime.Tests -c Release
 It checks registry coverage for the DWSIM palette, alias resolution,
 `.dwxml/.dwxmz` graph edit roundtrips, and `External` graphic object resolution.
 
-The MathOps leaf test runner checks the first ported numerical assemblies:
+The MathOps test runner checks the first ported numerical assemblies:
 
 ```bash
 dotnet run --project src/DwsimPy.MathOps.Tests -c Release
 ```
 
 It currently covers Simpson integration, Mapack linear solves, Cholesky, LU,
-eigenvalues, SVD, DotNumerics/LAPACK linear solves, deterministic random
-generation, and a SwarmOps benchmark optimization smoke path.
+eigenvalues, SVD, Brent root finding, MathNet-based interpolation,
+DotNumerics/LAPACK linear solves, deterministic random generation, and a
+SwarmOps benchmark optimization smoke path.
 
 ## Definition of Done
 
@@ -163,13 +175,14 @@ generation, and a SwarmOps benchmark optimization smoke path.
 
 2. **Create SDK-style net10 projects**
    - Started from dependency leaves with low UI coupling:
+     - `DWSIM.MathOps`
      - `DWSIM.MathOps.SimpsonIntegrator`
      - `DWSIM.MathOps.Mapack`
      - `DWSIM.MathOps.RandomOps`
      - `DWSIM.MathOps.SwarmOps`
      - `DWSIM.MathOps.DotNumerics`
-   - Continue with the remaining MathOps leaves:
-     - VB `DWSIM.MathOps`
+   - Revisit the optional old solver adapters only after choosing native/managed
+     replacements for IPOPT and LibOptimization.
    - Then split and port the headless contracts:
      - `DWSIM.Interfaces`
      - `DWSIM.GlobalSettings`

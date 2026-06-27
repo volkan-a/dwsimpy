@@ -6,6 +6,9 @@ var tests = new (string Name, Action Body)[]
     ("simpson integrates polynomial", SimpsonIntegratesPolynomial),
     ("mapack solves linear system", MapackSolvesLinearSystem),
     ("mapack decompositions expose expected values", MapackDecompositionsExposeExpectedValues),
+    ("mathops brent finds root", MathOpsBrentFindsRoot),
+    ("mathops interpolation uses mathnet", MathOpsInterpolationUsesMathNet),
+    ("mathops bilinear interpolation uses compatibility point", MathOpsBilinearInterpolationUsesCompatibilityPoint),
     ("dotnumerics solves linear system", DotNumericsSolvesLinearSystem),
     ("randomops produces deterministic values", RandomOpsProducesDeterministicValues),
     ("swarmops optimizes benchmark", SwarmOpsOptimizesBenchmark),
@@ -83,6 +86,37 @@ static void MapackDecompositionsExposeExpectedValues()
     var svd = new SingularValueDecomposition(matrix);
     Assert(svd.Rank == 2, "SVD rank");
     AssertNear(eigenvalues[1], svd.Norm2, 1e-10, "SVD 2-norm");
+}
+
+static void MathOpsBrentFindsRoot()
+{
+    var solver = new DWSIM.MathOps.MathEx.BrentOpt.Brent();
+    var root = solver.BrentOpt2(0.0, 4.0, 20, 1e-12, 100, x => x * x - 4.0);
+
+    AssertNear(2.0, root, 1e-8, "Brent root");
+}
+
+static void MathOpsInterpolationUsesMathNet()
+{
+    var x = new[] { 0.0, 1.0, 2.0 };
+    var y = new[] { 0.0, 10.0, 20.0 };
+    var result = DWSIM.MathOps.MathEx.Interpolation.LinearInterpolation.Interpolate(x, y, 1.5);
+
+    AssertNear(15.0, result, 1e-10, "Linear interpolation");
+}
+
+static void MathOpsBilinearInterpolationUsesCompatibilityPoint()
+{
+    var sample = new DWSIM.DrawingTools.Point.Point(1.0f, 1.0f);
+    var points = new List<Tuple<DWSIM.DrawingTools.Point.Point, double>>
+    {
+        Tuple.Create(new DWSIM.DrawingTools.Point.Point(0.0f, 0.0f), 10.0),
+        Tuple.Create(new DWSIM.DrawingTools.Point.Point(2.0f, 0.0f), 20.0),
+    };
+
+    var result = DWSIM.MathOps.BilinearInterpolation.Interpolate(sample, points);
+
+    AssertNear(15.0, result, 1e-10, "Bilinear interpolation compatibility");
 }
 
 static void DotNumericsSolvesLinearSystem()
