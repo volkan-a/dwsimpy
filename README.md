@@ -35,6 +35,12 @@ assemblies.
 
 Track the port plan in `docs/NET10_PORT_PLAN.md`.
 
+The repo now also contains the first ported DWSIM leaf assemblies built as
+SDK-style `.NETCoreApp,Version=v10.0` projects:
+
+- `DWSIM.MathOps.SimpsonIntegrator`
+- `DWSIM.MathOps.Mapack`
+
 Audit the current payload with:
 
 ```bash
@@ -158,8 +164,11 @@ dwsimpy_package/
 docs/
   NET10_PORT_PLAN.md
 src/
+  DWSIM.MathOps.Mapack/
+  DWSIM.MathOps.SimpsonIntegrator/
   DwsimPy.Runtime/
   DwsimPy.Runtime.Cli/
+  DwsimPy.MathOps.Tests/
   DwsimPy.Runtime.Tests/
 examples/
   solve_existing_flowsheet.py
@@ -204,4 +213,5 @@ Run the .NET 10 runtime tests:
 
 ```bash
 dotnet run --project src/DwsimPy.Runtime.Tests -c Release
+dotnet run --project src/DwsimPy.MathOps.Tests -c Release
 ```

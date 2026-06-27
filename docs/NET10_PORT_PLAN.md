@@ -89,6 +89,16 @@ The first pure .NET 10 slice now lives in `src/DwsimPy.Runtime`:
 - Solver execution intentionally throws `NotSupportedException` until the
   headless solver path is ported.
 
+The first upstream DWSIM leaf assemblies now also live in `src/` as SDK-style
+`.NETCoreApp,Version=v10.0` projects:
+
+- `src/DWSIM.MathOps.SimpsonIntegrator`
+- `src/DWSIM.MathOps.Mapack`
+
+Both keep their DWSIM assembly names and compile without Mono, .NET Framework,
+WinForms, Eto, IronPython, or drawing dependencies. They are guarded by
+`src/DwsimPy.MathOps.Tests`.
+
 The CLI harness in `src/DwsimPy.Runtime.Cli` is for local validation:
 
 ```bash
@@ -115,6 +125,15 @@ dotnet run --project src/DwsimPy.Runtime.Tests -c Release
 It checks registry coverage for the DWSIM palette, alias resolution,
 `.dwxml/.dwxmz` graph edit roundtrips, and `External` graphic object resolution.
 
+The MathOps leaf test runner checks the first ported numerical assemblies:
+
+```bash
+dotnet run --project src/DwsimPy.MathOps.Tests -c Release
+```
+
+It currently covers Simpson integration, Mapack linear solves, Cholesky, LU,
+eigenvalues, and SVD smoke paths.
+
 ## Definition of Done
 
 - First-party runtime DLLs shipped in wheels target `.NETCoreApp,Version=v10.0`.
@@ -139,8 +158,14 @@ It checks registry coverage for the DWSIM palette, alias resolution,
    - Flip it to `--fail-on-legacy` once the net10 payload is staged.
 
 2. **Create SDK-style net10 projects**
-   - Start from dependency leaves with low UI coupling:
-     - `DWSIM.MathOps*`
+   - Started from dependency leaves with low UI coupling:
+     - `DWSIM.MathOps.SimpsonIntegrator`
+     - `DWSIM.MathOps.Mapack`
+   - Continue with the remaining MathOps leaves:
+     - `DWSIM.MathOps.RandomOps`
+     - `DWSIM.MathOps.SwarmOps`
+     - `DWSIM.MathOps.DotNumerics`
+     - VB `DWSIM.MathOps`
    - Then split and port the headless contracts:
      - `DWSIM.Interfaces`
      - `DWSIM.GlobalSettings`

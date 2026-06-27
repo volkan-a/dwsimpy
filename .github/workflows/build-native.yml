@@ -32,6 +32,12 @@ jobs:
         run: dotnet build src/DwsimPy.Runtime.Cli/DwsimPy.Runtime.Cli.csproj -c Release
       - name: Test pure .NET 10 runtime slice
         run: dotnet run --project src/DwsimPy.Runtime.Tests/DwsimPy.Runtime.Tests.csproj -c Release
+      - name: Build pure .NET 10 MathOps leaves
+        run: |
+          dotnet build src/DWSIM.MathOps.SimpsonIntegrator/DWSIM.MathOps.SimpsonIntegrator.csproj -c Release
+          dotnet build src/DWSIM.MathOps.Mapack/DWSIM.MathOps.Mapack.csproj -c Release
+      - name: Test pure .NET 10 MathOps leaves
+        run: dotnet run --project src/DwsimPy.MathOps.Tests/DwsimPy.MathOps.Tests.csproj -c Release
 
   linux-x86_64:
     runs-on: ubuntu-24.04
