@@ -4,12 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dwsimpy"
-version = "1.0.0"
+version = "1.0.1"
 description = "DWSIM Chemical Process Simulation for Python"
+license = "GPL-3.0-only"
 requires-python = ">=3.10"
 dependencies = [
     "pythonnet>=3.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/volkan-a/dwsimpy"
+Repository = "https://github.com/volkan-a/dwsimpy"
+Issues = "https://github.com/volkan-a/dwsimpy/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]

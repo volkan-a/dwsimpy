@@ -4,9 +4,20 @@ COMMON_MARKERS = (
     "DWSIM.Automation.dll",
     "DWSIM.Thermodynamics.dll",
     "DWSIM.Thermodynamics.CoolPropInterface.dll",
+    "DWSIM.Thermodynamics.Strings.resources",
+    "DWSIM.UnitOperations.Strings.resources",
+    "DWSIM.FlowsheetBase.Strings.resources",
+    "DWSIM.FlowsheetBase.Properties.resources",
     "System.Windows.Forms.dll",
     "System.Drawing.Common.dll",
 )
+
+RESOURCE_SOURCES = {
+    "DWSIM.Thermodynamics.Strings.resources": "ThermoStrings.resx",
+    "DWSIM.UnitOperations.Strings.resources": "UnitOpsStrings.resx",
+    "DWSIM.FlowsheetBase.Strings.resources": "Strings.resx",
+    "DWSIM.FlowsheetBase.Properties.resources": "Properties.resx",
+}
 
 REQUIRED_NATIVE = {
     "macos_arm64": ("libCoolProp.dylib", "libPetAz.dylib", "libSkiaSharp.dylib"),

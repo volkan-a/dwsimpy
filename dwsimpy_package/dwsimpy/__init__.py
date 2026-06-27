@@ -45,12 +45,20 @@ _REQUIRED_NATIVE = {
     "windows_x86_64": ("CoolProp.dll", "PetAz.dll", "libSkiaSharp.dll"),
 }
 
+_MANAGED_RESOURCES = (
+    "DWSIM.Thermodynamics.Strings.resources",
+    "DWSIM.UnitOperations.Strings.resources",
+    "DWSIM.FlowsheetBase.Strings.resources",
+    "DWSIM.FlowsheetBase.Properties.resources",
+)
+
 # ═══════════════════════════════════════════════════════════════════
 # Runtime initialization (runs once on import)
 # ═══════════════════════════════════════════════════════════════════
 _initialized = False
 _automation = None
 _dll_directory_handles = []
+_resource_managers = {}
 
 
 def _platform_key():
@@ -103,6 +111,16 @@ def _validate_runtime_payload(platform_name, dirs):
             "platform wheel runtime payload."
         )
 
+    missing_resources = [
+        name for name in _MANAGED_RESOURCES if not (_LIBS_DIR / name).is_file()
+    ]
+    if missing_resources:
+        raise RuntimeError(
+            "Missing dwsimpy managed resource files: "
+            f"{', '.join(missing_resources)}. Rebuild or restage the "
+            "platform wheel runtime payload."
+        )
+
 
 def _configure_native_search_paths(dirs):
     global _dll_directory_handles
@@ -122,6 +140,46 @@ def _configure_native_search_paths(dirs):
         path_str = str(path)
         if path_str not in sys.path:
             sys.path.insert(0, path_str)
+
+
+def _file_resource_manager(base_name):
+    manager = _resource_managers.get(base_name)
+    if manager is None:
+        from System.Resources import ResourceManager
+        manager = ResourceManager.CreateFileBasedResourceManager(
+            base_name, str(_LIBS_DIR), None
+        )
+        _resource_managers[base_name] = manager
+    return manager
+
+
+def _configure_static_resource_managers():
+    from DWSIM.Thermodynamics import Calculator
+    from DWSIM.UnitOperations import ResMan
+
+    Calculator._ResourceManager = _file_resource_manager(
+        "DWSIM.Thermodynamics.Strings"
+    )
+    ResMan._ResourceManager = _file_resource_manager("DWSIM.UnitOperations.Strings")
+
+
+def _invoke_if_present(obj, method_name, *args):
+    method = obj.GetType().GetMethod(method_name)
+    if method is not None:
+        method.Invoke(obj, args)
+
+
+def _configure_flowsheet_resource_managers(fs):
+    _invoke_if_present(
+        fs,
+        "SetResourcesManager",
+        _file_resource_manager("DWSIM.FlowsheetBase.Strings"),
+    )
+    _invoke_if_present(
+        fs,
+        "SetPropertyResourcesManager",
+        _file_resource_manager("DWSIM.FlowsheetBase.Properties"),
+    )
 
 
 def _init_runtime():
@@ -165,6 +223,7 @@ def _init_runtime():
         asm_path = _LIBS_DIR / f"{asm}.dll"
         clr.AddReference(str(asm_path) if asm_path.is_file() else asm)
 
+    _configure_static_resource_managers()
     _initialized = True
 
 
@@ -226,6 +285,7 @@ class Automation:
         Returns a Flowsheet wrapper.
         """
         fs = self._automation.LoadFlowsheet(os.path.abspath(path))
+        _configure_flowsheet_resource_managers(fs)
         return Flowsheet(fs, self._DWSIM)
 
     def solve(self, flowsheet):

@@ -3,9 +3,16 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import subprocess
 from pathlib import Path
 
-from native_manifest import COMMON_MARKERS, KNOWN_NATIVE_FILES, PLATFORM_DIRS, REQUIRED_NATIVE
+from native_manifest import (
+    COMMON_MARKERS,
+    KNOWN_NATIVE_FILES,
+    PLATFORM_DIRS,
+    REQUIRED_NATIVE,
+    RESOURCE_SOURCES,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -23,6 +30,36 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def ensure_managed_resources(libs_dir: Path) -> None:
+    missing = [
+        (resource, source)
+        for resource, source in RESOURCE_SOURCES.items()
+        if not (libs_dir / resource).is_file()
+    ]
+    if not missing:
+        return
+
+    resgen = shutil.which("resgen") or shutil.which("resgen.exe")
+    if not resgen:
+        missing_names = ", ".join(resource for resource, _ in missing)
+        raise SystemExit(
+            "Missing managed resource files and resgen was not found: "
+            f"{missing_names}. Commit the generated .resources files or install "
+            "resgen before staging the wheel runtime payload."
+        )
+
+    for resource, source in missing:
+        source_path = libs_dir / source
+        if not source_path.is_file():
+            raise SystemExit(
+                f"Cannot generate {resource}; source .resx is missing: {source_path}"
+            )
+        subprocess.run(
+            [resgen, str(source_path), str(libs_dir / resource)],
+            check=True,
+        )
+
+
 def main() -> int:
     args = parse_args()
     libs_dir = args.package_dir / "dwsimpy" / "libs"
@@ -32,6 +69,10 @@ def main() -> int:
         raise SystemExit(f"Missing runtime directory: {libs_dir}")
     if not native_dir.is_dir():
         raise SystemExit(f"Missing native artifact directory: {native_dir}")
+    if native_dir.resolve() == libs_dir.resolve():
+        raise SystemExit("--native-dir must be separate from dwsimpy/libs")
+
+    ensure_managed_resources(libs_dir)
 
     missing_common = [name for name in COMMON_MARKERS if not (libs_dir / name).is_file()]
     if missing_common:

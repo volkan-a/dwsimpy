@@ -1,84 +1,121 @@
 # dwsimpy
 
-Python bindings for the DWSIM headless automation engine through
+Python wheels for running the DWSIM headless automation engine through
 pythonnet/CoreCLR.
 
-This repository packages the curated DWSIM managed runtime together with
-platform native libraries for:
+`dwsimpy` is intended for scripts, notebooks, CI jobs, and optimization
+workflows that need to load and solve existing DWSIM flowsheets from Python.
 
-- macOS arm64
-- Linux x86_64
-- Windows x86_64
+## What Is Bundled
 
-## Install From GitHub
+The release wheels include:
 
-Download the wheel for your platform from the GitHub Actions artifacts or from
-the latest GitHub Release:
+- a curated DWSIM managed runtime payload
+- platform native libraries for CoolProp, PetAz, and SkiaSharp
+- Python wrappers for `Automation`, `Flowsheet`, and `SimulationObject`
 
-- `dwsimpy-*-macosx_11_0_arm64.whl` for Apple Silicon macOS
-- `dwsimpy-*-manylinux_x86_64.whl` for Linux x86_64
-- `dwsimpy-*-win_amd64.whl` for Windows x86_64
+You do not need to install the DWSIM desktop application to use a wheel.
+You do need:
 
-Then install it:
+- Python 3.10 or newer
+- a compatible .NET runtime available through `dotnet` or `DOTNET_ROOT`
+- an existing `.dwxml` or `.dwxmz` flowsheet file to load
+
+Current wheels target .NET/CoreCLR with the package runtime config in
+`dwsimpy/.runtimeconfig.json`.
+
+## Supported Wheels
+
+GitHub Releases provide one wheel per platform:
+
+- Apple Silicon macOS: `dwsimpy-*-macosx_11_0_arm64.whl`
+- Linux x86_64: `dwsimpy-*-manylinux_2_17_x86_64.manylinux2014_x86_64.whl`
+- Windows x86_64: `dwsimpy-*-win_amd64.whl`
+
+## Install
+
+Download the wheel for your platform from the latest release:
+
+https://github.com/volkan-a/dwsimpy/releases
+
+Then install it with pip:
 
 ```bash
-python -m pip install ./dwsimpy-1.0.0-py3-none-macosx_11_0_arm64.whl
+python -m pip install ./dwsimpy-1.0.1-py3-none-macosx_11_0_arm64.whl
 ```
 
-The machine must have a compatible .NET runtime installed. If `dotnet` is not
-on `PATH`, set `DOTNET_ROOT` to the directory containing the `dotnet`
-executable.
+You can also install directly from a release asset URL, for example:
+
+```bash
+python -m pip install \
+  https://github.com/volkan-a/dwsimpy/releases/download/v1.0.1/dwsimpy-1.0.1-py3-none-macosx_11_0_arm64.whl
+```
+
+If `dotnet` is not on `PATH`, set `DOTNET_ROOT` to the directory containing the
+`dotnet` executable.
 
 ## Quick Start
 
 ```python
+from pathlib import Path
 import dwsimpy
 
-sim = dwsimpy.Automation()
-print(len(sim.available_compounds))
-print(len(sim.available_property_packages))
+flowsheet_path = Path("my_simulation.dwxml")
 
-fs = sim.load_flowsheet("my_simulation.dwxml")
+sim = dwsimpy.Automation()
+print("Compounds:", len(sim.available_compounds))
+print("Property packages:", len(sim.available_property_packages))
+
+fs = sim.load_flowsheet(flowsheet_path)
+
 errors = sim.solve(fs)
 if errors:
     raise RuntimeError(errors)
 
 outlet = fs.get_object("OUT")
-print(outlet.get_property("Temperature"))
+print("Outlet temperature:", outlet.get_property("Temperature"))
+
 sim.close(fs)
 ```
 
-## Build Wheels On GitHub
-
-The `Build Native Libraries and Wheels` workflow builds native libraries and
-platform wheels for macOS arm64, Linux x86_64, and Windows x86_64.
-
-Artifacts are uploaded for every workflow run:
-
-- `wheels-macos-arm64`
-- `wheels-linux-x86_64`
-- `wheels-windows-x86_64`
-
-To publish downloadable release assets:
+Run the included example:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+python examples/solve_existing_flowsheet.py path/to/my_simulation.dwxml
 ```
 
-The tag build attaches the three wheel files to the matching GitHub Release.
+## Public API
 
-## Local Smoke Test
+The supported Python API is intentionally small:
 
-From this checkout on macOS arm64:
+- `dwsimpy.Automation()`
+- `Automation.load_flowsheet(path)`
+- `Automation.solve(flowsheet)`
+- `Automation.close(flowsheet)`
+- `Flowsheet.get_object(tag)`
+- `Flowsheet.get_objects()`
+- `SimulationObject.get_property(name)`
+- `SimulationObject.set_property(name, value)`
+- `SimulationObject.get_property_unit(name)`
+
+`get_property()` and `set_property()` use DWSIM property names and SI units.
+
+## Building Wheels
+
+The GitHub Actions workflow builds native artifacts and platform wheels for:
+
+- macOS arm64
+- Linux x86_64
+- Windows x86_64
+
+To publish a release:
 
 ```bash
-cd dwsimpy_package
-PYTHONPATH=. python3 scripts/smoke_test.py --automation
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
-Expected result: the import succeeds and DWSIM reports available compounds and
-property packages.
+The tag workflow attaches the built wheels to the matching GitHub Release.
 
 ## Repository Layout
 
@@ -93,14 +130,20 @@ dwsimpy_package/
     validate_native_artifacts.py
     validate_wheel_contents.py
     smoke_test.py
+examples/
+  solve_existing_flowsheet.py
 native_libs_arm64/
   PetAz.c
 .github/workflows/build-native.yml
 ```
 
-## Notes
+## License And Attribution
 
-- The public Python API is `Automation`, `Flowsheet`, and `SimulationObject`.
-- The managed DWSIM runtime payload is committed as package data; CI builds the
-  native platform libraries and stages the correct platform files into each
-  wheel.
+This repository redistributes DWSIM runtime binaries. DWSIM is developed by
+Daniel Wagner and contributors and is licensed under the GNU General Public
+License, version 3. See `LICENSE` and the upstream DWSIM source repository:
+
+https://github.com/DanWBR/dwsim
+
+This project is an experimental Python packaging layer for DWSIM automation and
+is not an official DWSIM distribution.
