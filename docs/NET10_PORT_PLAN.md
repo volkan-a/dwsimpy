@@ -96,6 +96,7 @@ The first upstream DWSIM contract/leaf assemblies now also live in `src/` as SDK
 
 - `src/DWSIM.Interfaces`
 - `src/DWSIM.GlobalSettings`
+- `src/DWSIM.SharedClassesCSharp`
 - `src/DWSIM.MathOps.SimpsonIntegrator`
 - `src/DWSIM.MathOps`
 - `src/DWSIM.MathOps.Mapack`
@@ -103,10 +104,10 @@ The first upstream DWSIM contract/leaf assemblies now also live in `src/` as SDK
 - `src/DWSIM.MathOps.SwarmOps`
 - `src/DWSIM.MathOps.DotNumerics`
 
-All eight keep their DWSIM assembly names and compile without Mono, .NET Framework,
+All nine keep their DWSIM assembly names and compile without Mono, .NET Framework,
 WinForms, Eto, IronPython, or desktop drawing dependencies. The MathOps
-assemblies are guarded by `src/DwsimPy.MathOps.Tests`; the interface and global
-settings contracts are guarded by `src/DwsimPy.Runtime.Tests`.
+assemblies are guarded by `src/DwsimPy.MathOps.Tests`; the interface, global
+settings, and shared C# contracts are guarded by `src/DwsimPy.Runtime.Tests`.
 
 `src/DWSIM.Interfaces` is a headless contract split. Methods that used to expose
 desktop values such as `System.Windows.Forms.Form`, `System.Windows.Forms.UserControl`,
@@ -117,6 +118,12 @@ runtime boundary. The runtime test runner checks those signatures by reflection.
 automation/solver code. Python.NET initialization is explicitly unsupported in
 this pure net10 assembly; Python hosting stays outside the managed runtime
 boundary.
+
+`src/DWSIM.SharedClassesCSharp` currently includes the headless AI convergence
+DTOs, solid particle size/distribution classes, and injectable file picker
+service contracts. The old WinForms connection editor, resource bitmap wrapper,
+Windows file picker dialog, and Simulate365 file management coupling remain
+outside the pure runtime boundary.
 
 The main VB `DWSIM.MathOps` port intentionally does not carry legacy optional
 solver adapters into the net10 source project:
@@ -154,7 +161,8 @@ dotnet run --project src/DwsimPy.Runtime.Tests -c Release
 It checks registry coverage for the DWSIM palette, alias resolution,
 `.dwxml/.dwxmz` graph edit roundtrips, `External` graphic object resolution,
 the headless `DWSIM.Interfaces` contract signatures, and `DWSIM.GlobalSettings`
-platform/settings behavior.
+platform/settings behavior. It also smoke-tests the headless
+`DWSIM.SharedClassesCSharp` AI, solids, and file picker service surface.
 
 The MathOps test runner checks the first ported numerical assemblies:
 
@@ -194,6 +202,7 @@ SwarmOps benchmark optimization smoke path.
    - Started from dependency leaves with low UI coupling:
      - `DWSIM.Interfaces`
      - `DWSIM.GlobalSettings`
+     - `DWSIM.SharedClassesCSharp`
      - `DWSIM.MathOps`
      - `DWSIM.MathOps.SimpsonIntegrator`
      - `DWSIM.MathOps.Mapack`
@@ -203,7 +212,7 @@ SwarmOps benchmark optimization smoke path.
    - Revisit the optional old solver adapters only after choosing native/managed
      replacements for IPOPT and LibOptimization.
    - Continue with the remaining headless contracts:
-     - `DWSIM.SharedClassesCSharp`
+     - VB `DWSIM.SharedClasses`
    - Avoid carrying old `.vbproj/.csproj` desktop references forward.
    - Split UI-facing interfaces out of the headless contract. Even
      `DWSIM.Interfaces` currently exposes desktop types such as

@@ -40,6 +40,7 @@ SDK-style `.NETCoreApp,Version=v10.0` projects:
 
 - `DWSIM.Interfaces`
 - `DWSIM.GlobalSettings`
+- `DWSIM.SharedClassesCSharp`
 - `DWSIM.MathOps.SimpsonIntegrator`
 - `DWSIM.MathOps`
 - `DWSIM.MathOps.Mapack`
@@ -59,6 +60,11 @@ contract points that previously exposed WinForms or System.Drawing types now use
 `DWSIM.GlobalSettings` is also ported as a headless settings/state assembly. It
 keeps the existing settings surface but does not reference Python.Runtime,
 Cudafy, DWSIM.Logging, or the legacy Nini DLL.
+
+`DWSIM.SharedClassesCSharp` is ported as a headless subset for AI convergence
+DTOs, solid particle data classes, and injectable file picker services. The old
+WinForms connection editor and Windows dialog picker are not part of this
+runtime boundary.
 
 Audit the current payload with:
 
@@ -185,6 +191,7 @@ docs/
 src/
   DWSIM.Interfaces/
   DWSIM.GlobalSettings/
+  DWSIM.SharedClassesCSharp/
   DWSIM.MathOps/
   DWSIM.MathOps.DotNumerics/
   DWSIM.MathOps.Mapack/

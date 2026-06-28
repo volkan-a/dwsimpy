@@ -8,6 +8,7 @@ var tests = new (string Name, Action Body)[]
     ("registry resolves aliases", RegistryResolvesAliases),
     ("interfaces are headless contracts", InterfacesAreHeadlessContracts),
     ("global settings are headless", GlobalSettingsAreHeadless),
+    ("shared classes csharp are headless", SharedClassesCSharpAreHeadless),
     ("dwxml graph edit roundtrip", DwxmlGraphEditRoundtrip),
     ("dwxmz save and load roundtrip", DwxmzSaveAndLoadRoundtrip),
     ("external graphic resolves to simulation object type", ExternalGraphicResolvesToSimulationObjectType),
@@ -160,6 +161,41 @@ static void GlobalSettingsAreHeadless()
     }
 }
 
+static void SharedClassesCSharpAreHeadless()
+{
+    var request = new DWSIM.AI.ConvergenceAssistant.Classes.ConvergenceHelperTrainingData
+    {
+        RequestType = DWSIM.Interfaces.ConvergenceHelperRequestType.PVFlash,
+        ModelName = "smoke",
+        NumberOfCompounds = 2,
+        CompoundNames = new[] { "Water", "Ethanol" },
+        Temperature = "300",
+        Pressure = "101325",
+    };
+    Assert(!string.IsNullOrWhiteSpace(request.GetBase64StringHash()), "AI training data hash should be generated");
+
+    var curve = new DWSIM.SharedClassesCSharp.Solids.SolidShapeCurve
+    {
+        Name = "PSD",
+        Data = new List<DWSIM.Interfaces.ISolidParticleSize>
+        {
+            new DWSIM.SharedClassesCSharp.Solids.SolidParticleSize { Size = 1.0, MassFraction = 0.25 },
+            new DWSIM.SharedClassesCSharp.Solids.SolidParticleSize { Size = 2.0, MassFraction = 0.75 },
+        },
+    };
+    AssertNear(0.5, curve.GetValue(1.5), 1e-12, "Solid curve interpolation");
+    var clone = curve.Clone();
+    Assert(clone.Data.Count == 2, "Solid curve clone should preserve data");
+
+    var allowedType = new DWSIM.SharedClassesCSharp.FilePicker.FilePickerAllowedType("DWSIM", ".dwxmz");
+    Assert(allowedType.AllowedExtensions.Single() == ".dwxmz", "Allowed file type should preserve extension");
+
+    var service = DWSIM.SharedClassesCSharp.FilePicker.FilePickerService.GetInstance();
+    AssertThrows<PlatformNotSupportedException>(
+        () => service.GetFilePicker(),
+        "Headless file picker service should require an injected factory");
+}
+
 static void DwxmlGraphEditRoundtrip()
 {
     var engine = new XmlFlowsheetEngine();
@@ -274,4 +310,12 @@ static void AssertThrows<TException>(Action action, string message)
     }
 
     throw new InvalidOperationException(message);
+}
+
+static void AssertNear(double expected, double actual, double tolerance, string message)
+{
+    if (Math.Abs(expected - actual) > tolerance)
+    {
+        throw new InvalidOperationException($"{message}: expected {expected}, got {actual}");
+    }
 }

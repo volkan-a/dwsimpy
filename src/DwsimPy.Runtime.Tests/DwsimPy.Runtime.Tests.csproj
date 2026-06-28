@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../DWSIM.GlobalSettings/DWSIM.GlobalSettings.vbproj" />
     <ProjectReference Include="../DWSIM.Interfaces/DWSIM.Interfaces.vbproj" />
+    <ProjectReference Include="../DWSIM.SharedClassesCSharp/DWSIM.SharedClassesCSharp.csproj" />
     <ProjectReference Include="../DwsimPy.Runtime/DwsimPy.Runtime.csproj" />
   </ItemGroup>
 </Project>
