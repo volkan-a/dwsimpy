@@ -7,6 +7,7 @@ var tests = new (string Name, Action Body)[]
     ("registry contains DWSIM palette", RegistryContainsDwsimPalette),
     ("registry resolves aliases", RegistryResolvesAliases),
     ("interfaces are headless contracts", InterfacesAreHeadlessContracts),
+    ("global settings are headless", GlobalSettingsAreHeadless),
     ("dwxml graph edit roundtrip", DwxmlGraphEditRoundtrip),
     ("dwxmz save and load roundtrip", DwxmzSaveAndLoadRoundtrip),
     ("external graphic resolves to simulation object type", ExternalGraphicResolvesToSimulationObjectType),
@@ -126,6 +127,39 @@ static void InterfacesAreHeadlessContracts()
     Assert(getIconAsBitmap?.ReturnType == typeof(object), "GetIconAsBitmap should not expose System.Drawing");
 }
 
+static void GlobalSettingsAreHeadless()
+{
+    var platform = DWSIM.GlobalSettings.Settings.GetPlatform();
+    Assert(platform is "Windows" or "Linux" or "Mac", $"Unexpected platform: {platform}");
+    Assert(DWSIM.GlobalSettings.Settings.GetEnvironment() is 32 or 64, "Environment bitness should be 32 or 64");
+    Assert(DWSIM.GlobalSettings.Settings.TaskCancellationTokenSource is not null, "Cancellation token source should be available");
+
+    DWSIM.GlobalSettings.Settings.PythonInitialized = false;
+    AssertThrows<PlatformNotSupportedException>(
+        () => DWSIM.GlobalSettings.Settings.InitializePythonEnvironment(),
+        "Python.NET initialization should not be part of GlobalSettings");
+
+    var path = Path.Combine(Path.GetTempPath(), $"dwsimpy-globalsettings-{Guid.NewGuid():N}.ini");
+    try
+    {
+        var source = new Nini.Config.IniConfigSource(path);
+        source.AddConfig("Misc").Set("SolverMode", 2);
+        source["Misc"].Set("EnableParallelProcessing", true);
+        source.Save();
+
+        var reloaded = new Nini.Config.IniConfigSource(path);
+        Assert(reloaded["Misc"].GetInt("SolverMode", 0) == 2, "INI integer roundtrip failed");
+        Assert(reloaded["Misc"].GetBoolean("EnableParallelProcessing", false), "INI boolean roundtrip failed");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
 static void DwxmlGraphEditRoundtrip()
 {
     var engine = new XmlFlowsheetEngine();
@@ -225,4 +259,19 @@ static void Assert(bool condition, string message)
     {
         throw new InvalidOperationException(message);
     }
+}
+
+static void AssertThrows<TException>(Action action, string message)
+    where TException : Exception
+{
+    try
+    {
+        action();
+    }
+    catch (TException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException(message);
 }

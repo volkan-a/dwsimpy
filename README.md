@@ -39,6 +39,7 @@ The repo now also contains the first ported DWSIM leaf assemblies built as
 SDK-style `.NETCoreApp,Version=v10.0` projects:
 
 - `DWSIM.Interfaces`
+- `DWSIM.GlobalSettings`
 - `DWSIM.MathOps.SimpsonIntegrator`
 - `DWSIM.MathOps`
 - `DWSIM.MathOps.Mapack`
@@ -54,6 +55,10 @@ covered by the MathOps test runner.
 `DWSIM.Interfaces` is ported as a headless contract assembly. Desktop-specific
 contract points that previously exposed WinForms or System.Drawing types now use
 `Object` so downstream solver code does not need desktop assemblies.
+
+`DWSIM.GlobalSettings` is also ported as a headless settings/state assembly. It
+keeps the existing settings surface but does not reference Python.Runtime,
+Cudafy, DWSIM.Logging, or the legacy Nini DLL.
 
 Audit the current payload with:
 
@@ -179,6 +184,7 @@ docs/
   NET10_PORT_PLAN.md
 src/
   DWSIM.Interfaces/
+  DWSIM.GlobalSettings/
   DWSIM.MathOps/
   DWSIM.MathOps.DotNumerics/
   DWSIM.MathOps.Mapack/
