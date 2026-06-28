@@ -68,7 +68,8 @@ WinForms connection editor and Windows dialog picker are not part of this
 runtime boundary.
 
 `DWSIM.SharedClasses` has started as a headless VB subset for unit systems,
-unit conversion, and dimensions. The old editor forms, resources, update checks,
+unit conversion, dimensions, flowsheet options/results, transition restore
+metadata, and weather data. The old editor forms, resources, update checks,
 weather providers, IronPython snippets, and desktop helpers remain outside this
 runtime boundary.
 

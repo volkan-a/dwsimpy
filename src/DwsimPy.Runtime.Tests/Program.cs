@@ -10,6 +10,7 @@ var tests = new (string Name, Action Body)[]
     ("global settings are headless", GlobalSettingsAreHeadless),
     ("shared classes csharp are headless", SharedClassesCSharpAreHeadless),
     ("shared classes units are headless", SharedClassesUnitsAreHeadless),
+    ("shared classes flowsheet data are headless", SharedClassesFlowsheetDataAreHeadless),
     ("dwxml graph edit roundtrip", DwxmlGraphEditRoundtrip),
     ("dwxmz save and load roundtrip", DwxmzSaveAndLoadRoundtrip),
     ("external graphic resolves to simulation object type", ExternalGraphicResolvesToSimulationObjectType),
@@ -222,6 +223,74 @@ static void SharedClassesUnitsAreHeadless()
     loaded.LoadData(dimension.SaveData());
     Assert(loaded.Name == DWSIM.Interfaces.Enums.DimensionName.Volume, "Dimension XML name roundtrip failed");
     AssertNear(12.5, loaded.Value, 1e-12, "Dimension XML value roundtrip");
+}
+
+static void SharedClassesFlowsheetDataAreHeadless()
+{
+    var options = new DWSIM.SharedClasses.DWSIM.Flowsheet.FlowsheetVariables
+    {
+        SimulationName = "HeadlessSmoke",
+        NumberFormat = "G5",
+        MassBalanceRelativeTolerance = 0.001,
+    };
+    options.VisibleProperties["MaterialStream"] = new List<string> { "Temperature", "Pressure" };
+
+    var loadedOptions = new DWSIM.SharedClasses.DWSIM.Flowsheet.FlowsheetVariables();
+    loadedOptions.LoadData(options.SaveData());
+    Assert(loadedOptions.SimulationName == "HeadlessSmoke", "Flowsheet options name roundtrip failed");
+    Assert(loadedOptions.VisibleProperties["MaterialStream"].SequenceEqual(new[] { "Temperature", "Pressure" }),
+        "Flowsheet visible properties roundtrip failed");
+    Assert(loadedOptions.CurrentWeather.Temperature_C == 30, "Default weather data should be available");
+
+    var transition = new DWSIM.SharedClasses.DWSIM.Flowsheet.FlowsheetTransitionRestore
+    {
+        FeatureName = "feature",
+        FeatureType = "runtime",
+        Action = "restore",
+        Location = "flowsheet",
+        Position = new List<double> { 10.0, 20.0 },
+    };
+    var loadedTransition = new DWSIM.SharedClasses.DWSIM.Flowsheet.FlowsheetTransitionRestore();
+    loadedTransition.LoadData(transition.SaveData());
+    Assert(loadedTransition.FeatureName == "feature", "Transition restore XML roundtrip failed");
+
+    var results = new DWSIM.SharedClasses.DWSIM.Flowsheet.FlowsheetResults
+    {
+        TotalCAPEX = 12.0,
+        TotalOPEX = 5.0,
+        ResidualMassBalance = 0.25,
+        TotalEnergyBalance = -0.5,
+    };
+    var additional = (IDictionary<string, object?>)results.Additional;
+    additional["PaybackYears"] = 3.5;
+    additional["Scenario"] = "base";
+
+    var loadedResults = new DWSIM.SharedClasses.DWSIM.Flowsheet.FlowsheetResults();
+    loadedResults.LoadData(results.SaveData());
+    var loadedAdditional = (IDictionary<string, object?>)loadedResults.Additional;
+    AssertNear(12.0, loadedResults.TotalCAPEX, 1e-12, "Flowsheet result CAPEX roundtrip");
+    AssertNear(3.5, Convert.ToDouble(loadedAdditional["PaybackYears"]), 1e-12, "Additional result double roundtrip");
+    Assert(loadedAdditional["Scenario"]?.ToString() == "base", "Additional result string roundtrip");
+
+    var weather = new DWSIM.SharedClasses.WeatherData
+    {
+        CurrentCondition = DWSIM.Interfaces.WeatherCondition.Cloudy,
+        Temperature_C = 18.0,
+        RelativeHumidity_pct = 60.0,
+    };
+    var loadedWeather = new DWSIM.SharedClasses.WeatherData();
+    loadedWeather.LoadData(weather.SaveData());
+    Assert(loadedWeather.CurrentCondition == DWSIM.Interfaces.WeatherCondition.Cloudy, "Weather condition roundtrip failed");
+    AssertNear(18.0, loadedWeather.Temperature_C, 1e-12, "Weather temperature roundtrip");
+
+    var eventArgs = new DWSIM.SharedClasses.DWSIM.Flowsheet.NewDataLoadedEventArgs
+    {
+        Tag = "loaded",
+        DataType = DWSIM.Interfaces.Enums.SnapshotType.ObjectData,
+        ShouldResetWindows = true,
+    };
+    Assert(eventArgs.Tag == "loaded", "New data event args tag mismatch");
+    Assert(eventArgs.ShouldResetWindows, "New data event args reset flag mismatch");
 }
 
 static void DwxmlGraphEditRoundtrip()

@@ -131,9 +131,12 @@ Windows file picker dialog, and Simulate365 file management coupling remain
 outside the pure runtime boundary.
 
 `src/DWSIM.SharedClasses` currently includes the headless VB unit-system,
-unit-conversion, and dimension classes. The old editor forms, resource bitmap
-wrappers, update checks, weather providers, IronPython snippets, and desktop
-helpers remain outside the pure runtime boundary.
+unit-conversion, dimension, flowsheet options/results, transition restore, new
+data event args, and weather data classes. Optimization and petroleum assay
+collections are kept as headless object collections until those concrete data
+types are ported. The old editor forms, resource bitmap wrappers, update
+checks, weather providers, IronPython snippets, and desktop helpers remain
+outside the pure runtime boundary.
 
 The main VB `DWSIM.MathOps` port intentionally does not carry legacy optional
 solver adapters into the net10 source project:
@@ -173,7 +176,8 @@ It checks registry coverage for the DWSIM palette, alias resolution,
 the headless `DWSIM.Interfaces` contract signatures, and `DWSIM.GlobalSettings`
 platform/settings behavior. It also smoke-tests the headless
 `DWSIM.SharedClassesCSharp` AI, solids, and file picker service surface plus the
-`DWSIM.SharedClasses` unit-system, unit-conversion, and dimension surface.
+`DWSIM.SharedClasses` unit-system, unit-conversion, dimension, flowsheet
+options/results, transition restore, and weather data surface.
 
 The MathOps test runner checks the first ported numerical assemblies:
 
@@ -224,8 +228,9 @@ SwarmOps benchmark optimization smoke path.
    - Revisit the optional old solver adapters only after choosing native/managed
      replacements for IPOPT and LibOptimization.
    - Continue expanding the remaining headless contract/data classes:
-     - `DWSIM.SharedClasses` flowsheet variables/results, charts, optimization,
-       sensitivity analysis, exception processing, and runtime utility methods
+     - `DWSIM.SharedClasses` charts, optimization, sensitivity analysis,
+       exception processing, petroleum assay data, GHG emission summary, and
+       runtime utility methods
    - Avoid carrying old `.vbproj/.csproj` desktop references forward.
    - Split UI-facing interfaces out of the headless contract. Even
      `DWSIM.Interfaces` currently exposes desktop types such as
