@@ -11,6 +11,7 @@ var tests = new (string Name, Action Body)[]
     ("shared classes csharp are headless", SharedClassesCSharpAreHeadless),
     ("shared classes units are headless", SharedClassesUnitsAreHeadless),
     ("shared classes flowsheet data are headless", SharedClassesFlowsheetDataAreHeadless),
+    ("shared classes analysis data are headless", SharedClassesAnalysisDataAreHeadless),
     ("shared classes exceptions are headless", SharedClassesExceptionsAreHeadless),
     ("dwxml graph edit roundtrip", DwxmlGraphEditRoundtrip),
     ("dwxmz save and load roundtrip", DwxmzSaveAndLoadRoundtrip),
@@ -292,6 +293,100 @@ static void SharedClassesFlowsheetDataAreHeadless()
     };
     Assert(eventArgs.Tag == "loaded", "New data event args tag mismatch");
     Assert(eventArgs.ShouldResetWindows, "New data event args reset flag mismatch");
+}
+
+static void SharedClassesAnalysisDataAreHeadless()
+{
+    var optimization = new DWSIM.SharedClasses.Flowsheet.Optimization.OptimizationCase
+    {
+        name = "minimum-duty",
+        description = "Minimize heater duty",
+        expression = "heaterDuty",
+        objfunctype = DWSIM.SharedClasses.Flowsheet.Optimization.OPTObjectiveFunctionType.Expression,
+        type = DWSIM.SharedClasses.Flowsheet.Optimization.OPTType.Minimization,
+        maxits = 250,
+        tolerance = 1e-7,
+    };
+    optimization.variables["feedTemperature"] = new DWSIM.SharedClasses.Flowsheet.Optimization.OPTVariable
+    {
+        objectID = "Feed",
+        propID = "Temperature",
+        unit = "K",
+        lowerlimit = 280.0,
+        upperlimit = 500.0,
+        initialvalue = 320.0,
+        currentvalue = 325.0,
+    };
+    optimization.results.Add(new[] { 325.0, 42.0 });
+
+    var loadedOptimization = new DWSIM.SharedClasses.Flowsheet.Optimization.OptimizationCase();
+    loadedOptimization.LoadData(optimization.SaveData());
+    Assert(loadedOptimization.name == "minimum-duty", "Optimization case XML name roundtrip failed");
+    Assert(loadedOptimization.maxits == 250, "Optimization iteration limit roundtrip failed");
+    AssertNear(500.0, loadedOptimization.variables["feedTemperature"].upperlimit!.Value, 1e-12,
+        "Optimization variable upper bound roundtrip");
+
+    var clonedOptimization =
+        (DWSIM.SharedClasses.Flowsheet.Optimization.OptimizationCase)optimization.Clone();
+    clonedOptimization.variables["feedTemperature"].currentvalue = 400.0;
+    ((double[])clonedOptimization.results[0]!)[0] = 400.0;
+    AssertNear(325.0, optimization.variables["feedTemperature"].currentvalue, 1e-12,
+        "Optimization clone should own independent variables");
+    AssertNear(325.0, ((double[])optimization.results[0]!)[0], 1e-12,
+        "Optimization clone should own cloneable result values");
+
+    var sensitivity = new DWSIM.SharedClasses.Flowsheet.Optimization.SensitivityAnalysisCase
+    {
+        name = "temperature-sweep",
+        numvar = 1,
+        depvartype = DWSIM.SharedClasses.Flowsheet.Optimization.SADependentVariableType.Expression,
+        expression = "productFlow",
+    };
+    sensitivity.iv1.objectID = "Feed";
+    sensitivity.iv1.propID = "Temperature";
+    sensitivity.iv1.lowerlimit = 290.0;
+    sensitivity.iv1.upperlimit = 350.0;
+    sensitivity.iv1.points = 7;
+    sensitivity.variables["feedTemperature"] =
+        (DWSIM.SharedClasses.Flowsheet.Optimization.SAVariable)sensitivity.iv1.Clone();
+    sensitivity.depvariables["productFlow"] = new DWSIM.SharedClasses.Flowsheet.Optimization.SAVariable
+    {
+        objectID = "Product",
+        propID = "Mass Flow",
+        unit = "kg/s",
+    };
+
+    var loadedSensitivity = new DWSIM.SharedClasses.Flowsheet.Optimization.SensitivityAnalysisCase();
+    loadedSensitivity.LoadData(sensitivity.SaveData());
+    Assert(loadedSensitivity.name == "temperature-sweep", "Sensitivity case XML name roundtrip failed");
+    Assert(loadedSensitivity.iv1.points == 7, "Sensitivity point count roundtrip failed");
+    Assert(loadedSensitivity.depvariables.ContainsKey("productFlow"),
+        "Sensitivity dependent variable roundtrip failed");
+
+    var clonedSensitivity =
+        (DWSIM.SharedClasses.Flowsheet.Optimization.SensitivityAnalysisCase)sensitivity.Clone();
+    clonedSensitivity.iv1.points = 11;
+    clonedSensitivity.depvariables["productFlow"].unit = "kg/h";
+    Assert(sensitivity.iv1.points == 7, "Sensitivity clone should own independent variables");
+    Assert(sensitivity.depvariables["productFlow"].unit == "kg/s",
+        "Sensitivity clone should own dependent variables");
+
+    var collections = new DWSIM.SharedClasses.DWSIM.Flowsheet.ObjectCollection();
+    collections.OPT_OptimizationCollection.Add(optimization);
+    collections.OPT_SensAnalysisCollection.Add(sensitivity);
+    Assert(collections.OPT_OptimizationCollection.Single().name == "minimum-duty",
+        "Object collection should expose concrete optimization cases");
+    Assert(collections.OPT_SensAnalysisCollection.Single().name == "temperature-sweep",
+        "Object collection should expose concrete sensitivity cases");
+
+    var assemblyReferences = typeof(DWSIM.SharedClasses.Flowsheet.Optimization.OptimizationCase)
+        .Assembly.GetReferencedAssemblies()
+        .Select(reference => reference.Name)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    Assert(!assemblyReferences.Contains("Ciloci.Flee"), "Analysis data assembly should not reference Ciloci.Flee");
+    Assert(typeof(DWSIM.SharedClasses.Flowsheet.Optimization.OptimizationCase)
+            .GetField("econtext")?.FieldType == typeof(object),
+        "Expression runtime state should stay solver-owned");
 }
 
 static void SharedClassesExceptionsAreHeadless()

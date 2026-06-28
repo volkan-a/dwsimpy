@@ -20,6 +20,7 @@ Imports System.Dynamic
 Imports System.Linq
 Imports DWSIM.Interfaces
 Imports DWSIM.Interfaces.Enums
+Imports DWSIM.SharedClasses.Flowsheet
 
 Namespace DWSIM.Flowsheet
 
@@ -54,9 +55,9 @@ Namespace DWSIM.Flowsheet
 
         Public FlowsheetObjectCollection As Dictionary(Of String, ISimulationObject)
 
-        Public OPT_SensAnalysisCollection As List(Of Object)
+        Public OPT_SensAnalysisCollection As List(Of Optimization.SensitivityAnalysisCase)
 
-        Public OPT_OptimizationCollection As List(Of Object)
+        Public OPT_OptimizationCollection As List(Of Optimization.OptimizationCase)
 
         Sub New()
 
@@ -66,9 +67,9 @@ Namespace DWSIM.Flowsheet
 
             FlowsheetObjectCollection = New Dictionary(Of String, ISimulationObject)
 
-            OPT_SensAnalysisCollection = New List(Of Object)
+            OPT_SensAnalysisCollection = New List(Of Optimization.SensitivityAnalysisCase)
 
-            OPT_OptimizationCollection = New List(Of Object)
+            OPT_OptimizationCollection = New List(Of Optimization.OptimizationCase)
 
         End Sub
 
