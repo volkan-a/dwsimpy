@@ -9,6 +9,7 @@ var tests = new (string Name, Action Body)[]
     ("interfaces are headless contracts", InterfacesAreHeadlessContracts),
     ("global settings are headless", GlobalSettingsAreHeadless),
     ("shared classes csharp are headless", SharedClassesCSharpAreHeadless),
+    ("shared classes units are headless", SharedClassesUnitsAreHeadless),
     ("dwxml graph edit roundtrip", DwxmlGraphEditRoundtrip),
     ("dwxmz save and load roundtrip", DwxmzSaveAndLoadRoundtrip),
     ("external graphic resolves to simulation object type", ExternalGraphicResolvesToSimulationObjectType),
@@ -194,6 +195,33 @@ static void SharedClassesCSharpAreHeadless()
     AssertThrows<PlatformNotSupportedException>(
         () => service.GetFilePicker(),
         "Headless file picker service should require an injected factory");
+}
+
+static void SharedClassesUnitsAreHeadless()
+{
+    var si = new DWSIM.SharedClasses.SystemsOfUnits.SI();
+    Assert(si.GetCurrentUnits(DWSIM.Interfaces.Enums.UnitOfMeasure.temperature) == "K", "SI temperature unit mismatch");
+    Assert(si.GetUnitSet(DWSIM.Interfaces.Enums.UnitOfMeasure.pressure).Contains("bar"), "Pressure unit set should include bar");
+
+    AssertNear(298.15, DWSIM.SharedClasses.SystemsOfUnits.Converter.ConvertToSI("C", 25.0), 1e-12, "Celsius to SI");
+    AssertNear(25.0, DWSIM.SharedClasses.SystemsOfUnits.Converter.ConvertFromSI("C", 298.15), 1e-12, "SI to Celsius");
+    AssertNear(100000.0, DWSIM.SharedClasses.SystemsOfUnits.Converter.ConvertToSI("bar", 1.0), 1e-9, "bar to SI");
+    AssertNear(1.0, DWSIM.SharedClasses.SystemsOfUnits.Converter.ConvertFromSI("bar", 100000.0), 1e-12, "SI to bar");
+
+    var dimension = new DWSIM.SharedClasses.Dimension
+    {
+        Name = DWSIM.Interfaces.Enums.DimensionName.Volume,
+        Value = 12.5,
+        IsUserDefined = true,
+        UserDefinedValue = 10.0,
+    };
+    Assert(dimension.GetDisplayName() == "Volume", "Dimension display name mismatch");
+    Assert(dimension.GetUnitsType() == DWSIM.Interfaces.Enums.UnitOfMeasure.volume, "Dimension units type mismatch");
+
+    var loaded = new DWSIM.SharedClasses.Dimension();
+    loaded.LoadData(dimension.SaveData());
+    Assert(loaded.Name == DWSIM.Interfaces.Enums.DimensionName.Volume, "Dimension XML name roundtrip failed");
+    AssertNear(12.5, loaded.Value, 1e-12, "Dimension XML value roundtrip");
 }
 
 static void DwxmlGraphEditRoundtrip()

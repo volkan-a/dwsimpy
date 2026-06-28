@@ -34,6 +34,8 @@ jobs:
         run: dotnet build src/DWSIM.GlobalSettings/DWSIM.GlobalSettings.vbproj -c Release
       - name: Build pure .NET 10 shared CSharp classes
         run: dotnet build src/DWSIM.SharedClassesCSharp/DWSIM.SharedClassesCSharp.csproj -c Release
+      - name: Build pure .NET 10 shared VB classes
+        run: dotnet build src/DWSIM.SharedClasses/DWSIM.SharedClasses.vbproj -c Release
       - name: Build pure .NET 10 runtime slice
         run: dotnet build src/DwsimPy.Runtime.Cli/DwsimPy.Runtime.Cli.csproj -c Release
       - name: Test pure .NET 10 runtime slice

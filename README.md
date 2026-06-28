@@ -41,6 +41,7 @@ SDK-style `.NETCoreApp,Version=v10.0` projects:
 - `DWSIM.Interfaces`
 - `DWSIM.GlobalSettings`
 - `DWSIM.SharedClassesCSharp`
+- `DWSIM.SharedClasses`
 - `DWSIM.MathOps.SimpsonIntegrator`
 - `DWSIM.MathOps`
 - `DWSIM.MathOps.Mapack`
@@ -64,6 +65,11 @@ Cudafy, DWSIM.Logging, or the legacy Nini DLL.
 `DWSIM.SharedClassesCSharp` is ported as a headless subset for AI convergence
 DTOs, solid particle data classes, and injectable file picker services. The old
 WinForms connection editor and Windows dialog picker are not part of this
+runtime boundary.
+
+`DWSIM.SharedClasses` has started as a headless VB subset for unit systems,
+unit conversion, and dimensions. The old editor forms, resources, update checks,
+weather providers, IronPython snippets, and desktop helpers remain outside this
 runtime boundary.
 
 Audit the current payload with:
@@ -192,6 +198,7 @@ src/
   DWSIM.Interfaces/
   DWSIM.GlobalSettings/
   DWSIM.SharedClassesCSharp/
+  DWSIM.SharedClasses/
   DWSIM.MathOps/
   DWSIM.MathOps.DotNumerics/
   DWSIM.MathOps.Mapack/

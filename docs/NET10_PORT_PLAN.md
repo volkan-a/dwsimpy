@@ -58,9 +58,12 @@ Current local source-audit findings:
   signatures with `Object`.
 - `DWSIM.GlobalSettings` has been ported as a headless settings/state assembly
   without Python.Runtime, Cudafy, DWSIM.Logging, or the legacy Nini DLL.
-- `DWSIM.SharedClasses`, `DWSIM.Thermodynamics`, `DWSIM.UnitOperations`, and
-  `DWSIM.FlowsheetBase` carry heavy editor/form/drawing references and should
-  not be ported by blindly retargeting the old projects.
+- The old `DWSIM.SharedClasses` project still carries heavy editor/form/drawing
+  references. The net10 port has started as a small headless subset and should
+  continue by adding only runtime-safe classes.
+- `DWSIM.Thermodynamics`, `DWSIM.UnitOperations`, and `DWSIM.FlowsheetBase`
+  carry heavy editor/form/drawing references and should not be ported by
+  blindly retargeting the old projects.
 - `DWSIM.FlowsheetSolver` is comparatively small but still references the
   legacy script interpreter surface.
 
@@ -97,6 +100,7 @@ The first upstream DWSIM contract/leaf assemblies now also live in `src/` as SDK
 - `src/DWSIM.Interfaces`
 - `src/DWSIM.GlobalSettings`
 - `src/DWSIM.SharedClassesCSharp`
+- `src/DWSIM.SharedClasses`
 - `src/DWSIM.MathOps.SimpsonIntegrator`
 - `src/DWSIM.MathOps`
 - `src/DWSIM.MathOps.Mapack`
@@ -104,10 +108,11 @@ The first upstream DWSIM contract/leaf assemblies now also live in `src/` as SDK
 - `src/DWSIM.MathOps.SwarmOps`
 - `src/DWSIM.MathOps.DotNumerics`
 
-All nine keep their DWSIM assembly names and compile without Mono, .NET Framework,
+All ten keep their DWSIM assembly names and compile without Mono, .NET Framework,
 WinForms, Eto, IronPython, or desktop drawing dependencies. The MathOps
 assemblies are guarded by `src/DwsimPy.MathOps.Tests`; the interface, global
-settings, and shared C# contracts are guarded by `src/DwsimPy.Runtime.Tests`.
+settings, shared C#, and shared VB contracts are guarded by
+`src/DwsimPy.Runtime.Tests`.
 
 `src/DWSIM.Interfaces` is a headless contract split. Methods that used to expose
 desktop values such as `System.Windows.Forms.Form`, `System.Windows.Forms.UserControl`,
@@ -124,6 +129,11 @@ DTOs, solid particle size/distribution classes, and injectable file picker
 service contracts. The old WinForms connection editor, resource bitmap wrapper,
 Windows file picker dialog, and Simulate365 file management coupling remain
 outside the pure runtime boundary.
+
+`src/DWSIM.SharedClasses` currently includes the headless VB unit-system,
+unit-conversion, and dimension classes. The old editor forms, resource bitmap
+wrappers, update checks, weather providers, IronPython snippets, and desktop
+helpers remain outside the pure runtime boundary.
 
 The main VB `DWSIM.MathOps` port intentionally does not carry legacy optional
 solver adapters into the net10 source project:
@@ -162,7 +172,8 @@ It checks registry coverage for the DWSIM palette, alias resolution,
 `.dwxml/.dwxmz` graph edit roundtrips, `External` graphic object resolution,
 the headless `DWSIM.Interfaces` contract signatures, and `DWSIM.GlobalSettings`
 platform/settings behavior. It also smoke-tests the headless
-`DWSIM.SharedClassesCSharp` AI, solids, and file picker service surface.
+`DWSIM.SharedClassesCSharp` AI, solids, and file picker service surface plus the
+`DWSIM.SharedClasses` unit-system, unit-conversion, and dimension surface.
 
 The MathOps test runner checks the first ported numerical assemblies:
 
@@ -203,6 +214,7 @@ SwarmOps benchmark optimization smoke path.
      - `DWSIM.Interfaces`
      - `DWSIM.GlobalSettings`
      - `DWSIM.SharedClassesCSharp`
+     - `DWSIM.SharedClasses`
      - `DWSIM.MathOps`
      - `DWSIM.MathOps.SimpsonIntegrator`
      - `DWSIM.MathOps.Mapack`
@@ -211,8 +223,9 @@ SwarmOps benchmark optimization smoke path.
      - `DWSIM.MathOps.DotNumerics`
    - Revisit the optional old solver adapters only after choosing native/managed
      replacements for IPOPT and LibOptimization.
-   - Continue with the remaining headless contracts:
-     - VB `DWSIM.SharedClasses`
+   - Continue expanding the remaining headless contract/data classes:
+     - `DWSIM.SharedClasses` flowsheet variables/results, charts, optimization,
+       sensitivity analysis, exception processing, and runtime utility methods
    - Avoid carrying old `.vbproj/.csproj` desktop references forward.
    - Split UI-facing interfaces out of the headless contract. Even
      `DWSIM.Interfaces` currently exposes desktop types such as
