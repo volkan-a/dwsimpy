@@ -11,6 +11,7 @@ var tests = new (string Name, Action Body)[]
     ("shared classes csharp are headless", SharedClassesCSharpAreHeadless),
     ("shared classes units are headless", SharedClassesUnitsAreHeadless),
     ("shared classes flowsheet data are headless", SharedClassesFlowsheetDataAreHeadless),
+    ("shared classes exceptions are headless", SharedClassesExceptionsAreHeadless),
     ("dwxml graph edit roundtrip", DwxmlGraphEditRoundtrip),
     ("dwxmz save and load roundtrip", DwxmzSaveAndLoadRoundtrip),
     ("external graphic resolves to simulation object type", ExternalGraphicResolvesToSimulationObjectType),
@@ -291,6 +292,39 @@ static void SharedClassesFlowsheetDataAreHeadless()
     };
     Assert(eventArgs.Tag == "loaded", "New data event args tag mismatch");
     Assert(eventArgs.ShouldResetWindows, "New data event args reset flag mismatch");
+}
+
+static void SharedClassesExceptionsAreHeadless()
+{
+    var source = new InvalidOperationException("root failure");
+    source.Data["DetailedDescription"] = "detailed failure";
+    source.Data["UserAction"] = "retry";
+
+    var processed = DWSIM.SharedClasses.ExceptionProcessing.ExceptionParser.ParseException(source);
+    Assert(processed.Name == nameof(InvalidOperationException), "Processed exception name mismatch");
+    Assert(processed.OriginalDescription == "root failure", "Processed exception message mismatch");
+    Assert(processed.DetailedDescription == "detailed failure", "Processed exception details mismatch");
+    Assert(processed.UserAction == "retry", "Processed exception user action mismatch");
+    Assert(ReferenceEquals(processed.ExceptionObject, source), "Processed exception object mismatch");
+
+    var aggregate = new AggregateException(new Exception("outer", new ApplicationException("inner")));
+    var first = DWSIM.SharedClasses.ExceptionProcessing.ExceptionParser.GetFirstException(aggregate);
+    Assert(first is ApplicationException, "Aggregate exception parser should return base exception");
+
+    var id = Guid.NewGuid().ToString("N");
+    DWSIM.SharedClasses.ExceptionProcessing.ExceptionList.Exceptions[id] = source;
+    Assert(ReferenceEquals(DWSIM.SharedClasses.ExceptionProcessing.ExceptionList.Exceptions[id], source),
+        "Exception list should store exception by id");
+    DWSIM.SharedClasses.ExceptionProcessing.ExceptionList.Exceptions.Remove(id);
+
+    var componentException = new DWSIM.SharedClasses.ComponentNotFoundException
+    {
+        ProductName = "Plugin",
+        ProductVersion = "1.0",
+        Base = source,
+    };
+    Assert(componentException.ProductName == "Plugin", "Component exception product name mismatch");
+    Assert(ReferenceEquals(componentException.Base, source), "Component exception base mismatch");
 }
 
 static void DwxmlGraphEditRoundtrip()
