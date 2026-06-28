@@ -1,3 +1,4 @@
+using System.Collections;
 using System.IO.Compression;
 using System.Text;
 using DwsimPy.Runtime;
@@ -12,6 +13,7 @@ var tests = new (string Name, Action Body)[]
     ("shared classes units are headless", SharedClassesUnitsAreHeadless),
     ("shared classes flowsheet data are headless", SharedClassesFlowsheetDataAreHeadless),
     ("shared classes analysis data are headless", SharedClassesAnalysisDataAreHeadless),
+    ("shared classes petroleum assay data are headless", SharedClassesPetroleumAssayDataAreHeadless),
     ("shared classes exceptions are headless", SharedClassesExceptionsAreHeadless),
     ("dwxml graph edit roundtrip", DwxmlGraphEditRoundtrip),
     ("dwxmz save and load roundtrip", DwxmzSaveAndLoadRoundtrip),
@@ -387,6 +389,77 @@ static void SharedClassesAnalysisDataAreHeadless()
     Assert(typeof(DWSIM.SharedClasses.Flowsheet.Optimization.OptimizationCase)
             .GetField("econtext")?.FieldType == typeof(object),
         "Expression runtime state should stay solver-owned");
+}
+
+static void SharedClassesPetroleumAssayDataAreHeadless()
+{
+    var bulk = new DWSIM.SharedClasses.Utilities.PetroleumCharacterization.Assay.Assay(
+        mw: 220.0,
+        sg60: 0.86,
+        nbpAverage: 520.0,
+        t1: 310.0,
+        t2: 372.0,
+        v1: 0.004,
+        v2: 0.001)
+    {
+        Name = "Bulk C7+",
+    };
+
+    var loadedBulk = new DWSIM.SharedClasses.Utilities.PetroleumCharacterization.Assay.Assay();
+    loadedBulk.LoadData(bulk.SaveData());
+    Assert(loadedBulk.Name == "Bulk C7+", "Bulk assay XML name roundtrip failed");
+    Assert(loadedBulk.IsBulk && !loadedBulk.IsCurve, "Bulk assay type roundtrip failed");
+    AssertNear(220.0, loadedBulk.MW, 1e-12, "Bulk assay molecular weight roundtrip");
+    AssertNear(0.86, loadedBulk.SG60, 1e-12, "Bulk assay specific gravity roundtrip");
+    Assert(loadedBulk.PX.Count == 0, "Bulk assay should preserve an empty curve");
+
+    var curve = new DWSIM.SharedClasses.Utilities.PetroleumCharacterization.Assay.Assay(
+        kApi: 12.0,
+        mw: 210.0,
+        api: 32.0,
+        t1: 310.0,
+        t2: 372.0,
+        nbpType: 1,
+        sgType: "SG20",
+        px: new ArrayList { 0.0, 0.5, 1.0 },
+        pyNbp: new ArrayList { 350.0, 450.0, 600.0 },
+        pyMw: new ArrayList { 100.0, 200.0, 350.0 },
+        pySg: new ArrayList { 0.72, 0.82, 0.94 },
+        pyV1: new ArrayList { 0.001, 0.004, 0.012 },
+        pyV2: new ArrayList { 0.0005, 0.002, 0.006 })
+    {
+        Name = "TBP Curve",
+        CurveBasis = "Volume",
+    };
+
+    var curveData = curve.SaveData();
+    Assert(curveData.Single(element => element.Name.LocalName == "PX").Value == "0,0.5,1",
+        "Curve assay should preserve the DWSIM comma-separated XML format");
+
+    var loadedCurve = new DWSIM.SharedClasses.Utilities.PetroleumCharacterization.Assay.Assay();
+    loadedCurve.LoadData(curveData);
+    Assert(loadedCurve.Name == "TBP Curve", "Curve assay XML name roundtrip failed");
+    Assert(loadedCurve.IsCurve && !loadedCurve.IsBulk, "Curve assay type roundtrip failed");
+    Assert(loadedCurve.HasMWCurve && loadedCurve.HasSGCurve && loadedCurve.HasViscCurves,
+        "Curve assay availability flags roundtrip failed");
+    Assert(loadedCurve.PX.Count == 3, "Curve assay fraction count roundtrip failed");
+    AssertNear(0.5, Convert.ToDouble(loadedCurve.PX[1]), 1e-12, "Curve assay fraction roundtrip");
+    AssertNear(600.0, Convert.ToDouble(loadedCurve.PY_NBP[2]), 1e-12,
+        "Curve assay boiling point roundtrip");
+
+    var clonedCurve =
+        (DWSIM.SharedClasses.Utilities.PetroleumCharacterization.Assay.Assay)curve.Clone();
+    clonedCurve.PX[1] = 0.6;
+    clonedCurve.PY_NBP[2] = 650.0;
+    AssertNear(0.5, Convert.ToDouble(curve.PX[1]), 1e-12,
+        "Curve assay clone should own fraction values");
+    AssertNear(600.0, Convert.ToDouble(curve.PY_NBP[2]), 1e-12,
+        "Curve assay clone should own boiling point values");
+
+    var options = new DWSIM.SharedClasses.DWSIM.Flowsheet.FlowsheetVariables();
+    options.PetroleumAssays["tbp"] = curve;
+    Assert(options.PetroleumAssays["tbp"].Name == "TBP Curve",
+        "Flowsheet options should expose concrete petroleum assay values");
 }
 
 static void SharedClassesExceptionsAreHeadless()

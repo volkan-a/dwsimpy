@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -138,6 +139,7 @@ namespace XMLSerializer
             var underlying = Nullable.GetUnderlyingType(type) ?? type;
             return underlying.IsPrimitive
                 || underlying.IsEnum
+                || underlying == typeof(ArrayList)
                 || underlying == typeof(string)
                 || underlying == typeof(decimal)
                 || underlying == typeof(DateTime)
@@ -147,6 +149,13 @@ namespace XMLSerializer
         private static string FormatValue(object value, Type declaredType)
         {
             var underlying = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
+            if (underlying == typeof(ArrayList))
+            {
+                return string.Join(",", ((ArrayList)value)
+                    .Cast<object>()
+                    .Select(FormatArrayItem));
+            }
+
             if (underlying == typeof(double))
             {
                 return ((double)value).ToString("R", CultureInfo.InvariantCulture);
@@ -165,6 +174,17 @@ namespace XMLSerializer
             return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
+        private static string FormatArrayItem(object value)
+        {
+            return value switch
+            {
+                double number => number.ToString("R", CultureInfo.InvariantCulture),
+                float number => number.ToString("R", CultureInfo.InvariantCulture),
+                IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+                _ => value?.ToString() ?? string.Empty,
+            };
+        }
+
         private static object ConvertValue(string value, Type targetType)
         {
             var nullableType = Nullable.GetUnderlyingType(targetType);
@@ -174,6 +194,29 @@ namespace XMLSerializer
             }
 
             var underlying = nullableType ?? targetType;
+
+            if (underlying == typeof(ArrayList))
+            {
+                var values = new ArrayList();
+                if (string.IsNullOrEmpty(value))
+                {
+                    return values;
+                }
+
+                foreach (var item in value.Split(','))
+                {
+                    if (double.TryParse(item, NumberStyles.Any, CultureInfo.InvariantCulture, out var number))
+                    {
+                        values.Add(number);
+                    }
+                    else
+                    {
+                        values.Add(item);
+                    }
+                }
+
+                return values;
+            }
 
             if (underlying == typeof(string))
             {

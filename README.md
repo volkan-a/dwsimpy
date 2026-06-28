@@ -70,11 +70,11 @@ runtime boundary.
 `DWSIM.SharedClasses` has started as a headless VB subset for unit systems,
 unit conversion, dimensions, flowsheet options/results, transition restore
 metadata, weather data, exception processing, optimization cases, and
-sensitivity-analysis cases. The analysis models preserve their DWSIM XML fields
-and use .NET 10-safe deep copies; expression compilation remains a solver-layer
-responsibility. The old editor forms, resources, update checks, weather
-providers, IronPython snippets, and desktop helpers remain outside this runtime
-boundary.
+sensitivity-analysis cases, plus bulk and distillation-curve petroleum assays.
+These models preserve their DWSIM XML fields and use .NET 10-safe deep copies;
+expression compilation remains a solver-layer responsibility. The old editor
+forms, resources, update checks, weather providers, IronPython snippets, and
+desktop helpers remain outside this runtime boundary.
 
 Audit the current payload with:
 
